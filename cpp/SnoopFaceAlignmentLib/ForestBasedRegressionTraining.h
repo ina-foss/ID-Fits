@@ -28,9 +28,10 @@
 #include <SnoopFaceAlignmentLib/LibLinearWrapper.h>
 
 
-typedef std::pair<double[2], double[2]> Feature_t;
-const double PI_2_ = 2*3.141592653589793238463;
+typedef std::pair<float[2], float[2]> Feature_t;
+const float PI_2_ = 2*3.141592653589793238463;
 enum node_separation_criteria_t {LS, VAR, MEAN_NORM, NORMALIZED_LS, NORMALIZED_VAR, TEST};
+
 
 class ForestRegressorTraining
 {
@@ -50,12 +51,12 @@ public:
         criteria_ = criteria;
     }
     
-    void setTransformations(const std::vector<double*>& transformations)
+    void setTransformations(const std::vector<float*>& transformations)
     {
         transformations_ = transformations;
     }
     
-    void train(ForestRegressor& forest_regressor, int l, const MatVector& shape, const MatVector& delta_s, const MatVector& image, double radius = 0.2)
+    void train(ForestRegressor& forest_regressor, int l, const MatVector& shape, const MatVector& delta_s, const MatVector& image, float radius = 0.2)
     {
         std::cout << "Training forest for landmark #" << l+1 << " ..." << std::endl;
         
@@ -68,7 +69,7 @@ public:
         unsigned int P = 3*N_/2;
         Forest_t forest;
         forest.resize(P);
-        std::vector<double> training_errors(P);
+        std::vector<float> training_errors(P);
         
         l_ = l;
         shape_ = &shape;
@@ -80,7 +81,7 @@ public:
         std::vector<cv::Mat> lookup_table;
         lookup_table.reserve(P*leaves_number_);
         for(unsigned int i=0; i<P*leaves_number_; i++)
-            lookup_table.push_back(cv::Mat::zeros(1, 2, CV_64FC1));
+            lookup_table.push_back(cv::Mat::zeros(1, 2, CV_32FC1));
         
         #pragma omp parallel for
         for(unsigned int n=0; n<P; n++) {
@@ -96,7 +97,7 @@ public:
         
         // Keep the N_ best trees out of the P computed
         for(unsigned int n=0; n<N_; n++) {
-            double max_error = 0;
+            float max_error = 0;
             unsigned int max_id = 0;
             for(unsigned int p=0; p<P-n; p++) {
                 if(max_error < training_errors[p]) {
@@ -147,9 +148,9 @@ public:
             int n = node_partition.size();
             
             if(n > 0) {
-                double sum[2] = {0.0, 0.0};
+                float sum[2] = {0.0, 0.0};
                 for(unsigned int i=0; i<node_partition.size(); i++) {
-                    const double *residual = (*shape_error_)[node_partition[i]].ptr<double>(l_);
+                    const float *residual = (*shape_error_)[node_partition[i]].ptr<float>(l_);
                     sum[0] += residual[0];
                     sum[1] += residual[1];
                 }
@@ -157,7 +158,7 @@ public:
                 sum[0] /= (node_partition.size() * N_);
                 sum[1] /= (node_partition.size() * N_);
                 
-                double *output = lookup_table[(1<<D_)*tree_pos_in_forest + pos].ptr<double>(0);
+                float *output = lookup_table[(1<<D_)*tree_pos_in_forest + pos].ptr<float>(0);
                 std::copy(sum, sum+2, output);
             }
             
@@ -184,12 +185,12 @@ public:
         int n = node_partition.size();
         int n_left;
         
-        double sum_left[2];
-        double sum_squarednorm_left;
-        double total_sum[2] = {0, 0};
-        double total_sum_squarednorm = 0;
+        float sum_left[2];
+        float sum_squarednorm_left;
+        float total_sum[2] = {0, 0};
+        float total_sum_squarednorm = 0;
         for(int i=0; i<n; i++) {
-            const double *residual = (*shape_error_)[i].ptr<double>(l_);
+            const float *residual = (*shape_error_)[i].ptr<float>(l_);
             
             total_sum[0] += residual[0];
             total_sum[1] += residual[1];
@@ -200,7 +201,7 @@ public:
         final_feature.first[0] = final_feature.first[1] = 0;
         final_feature.second[0] = final_feature.second[1] = 0;
         
-        double min_value = 1e50, value = 0;
+        float min_value = 1e50, value = 0;
         int final_feature_index = -1;
         
         for(unsigned int i=0; i<sampled_random_features_number_; i++) {
@@ -210,7 +211,7 @@ public:
             
             for(std::vector<int>::const_iterator it=node_partition.begin(); it!=node_partition.end(); it++) {
                 if(random_features_outputs[i][*it]) {
-                    const double *residual = (*shape_error_)[*it].ptr<double>(l_);
+                    const float *residual = (*shape_error_)[*it].ptr<float>(l_);
                     sum_left[0] += residual[0];
                     sum_left[1] += residual[1];
                     sum_squarednorm_left += residual[0]*residual[0] + residual[1]*residual[1];
@@ -244,20 +245,20 @@ public:
             right = node_partition;
     }
     
-    double minimizationCriteria(const double* total_sum, double total_sum_squarednorm, const double* sum_left, double sum_squarednorm_left, int n, int n_left) const
+    float minimizationCriteria(const float* total_sum, float total_sum_squarednorm, const float* sum_left, float sum_squarednorm_left, int n, int n_left) const
     {
         int n_right = n - n_left;
         
-        double sum_right[2];
+        float sum_right[2];
         sum_right[0] = total_sum[0]-sum_left[0];
         sum_right[1] = total_sum[1]-sum_left[1];
         
-        const double sum_squarednorm_right = total_sum_squarednorm - sum_squarednorm_left;
+        const float sum_squarednorm_right = total_sum_squarednorm - sum_squarednorm_left;
         
-        const double sum_left_norm = sum_left[0]*sum_left[0]+sum_left[1]*sum_left[1];
-        const double sum_right_norm = sum_right[0]*sum_right[0]+sum_right[1]*sum_right[1];
+        const float sum_left_norm = sum_left[0]*sum_left[0]+sum_left[1]*sum_left[1];
+        const float sum_right_norm = sum_right[0]*sum_right[0]+sum_right[1]*sum_right[1];
 
-        double var_left = 0, var_right = 0;
+        float var_left = 0, var_right = 0;
         
         switch(criteria_)
         {
@@ -295,11 +296,11 @@ public:
         return std::max(var_left, var_right);
     }
     
-    void generateRandomFeatures(double radius, Feature_t* random_features)
+    void generateRandomFeatures(float radius, Feature_t* random_features)
     {
-        boost::random::uniform_real_distribution<double> coordinate(-radius, radius);
+        boost::random::uniform_real_distribution<float> coordinate(-radius, radius);
         
-        double x, y;
+        float x, y;
         Feature_t feature;
        
         for(unsigned int i=0; i<sampled_random_features_number_; i++) {
@@ -326,8 +327,8 @@ private:
     node_separation_criteria_t criteria_;
     unsigned int sampled_random_features_number_;
     int l_;
-    double radius_;
-    std::vector<double*> transformations_;
+    float radius_;
+    std::vector<float*> transformations_;
     const std::vector<cv::Mat> *shape_, *shape_error_, *image_;
     boost::random::mt19937 rng_;
 };
@@ -368,9 +369,9 @@ protected:
         transformations_.reserve(n);
         
         for(int i=0; i<n; i++) {
-            double* transformation = new double[4];
+            float* transformation = new float[4];
             transformations_.push_back(transformation);
-            alignment_method_->computeTransformation((double*) shape[i].data, transformations_[i]);
+            alignment_method_->computeTransformation((float*) shape[i].data, transformations_[i]);
         }
         
         forest_regressor_training_.setTransformations(transformations_);
@@ -382,12 +383,12 @@ protected:
         normalized_delta_s.reserve(delta_s.size());
         
         for(unsigned int i=0; i<delta_s.size(); i++) {
-            normalized_delta_s.push_back(cv::Mat(L, 2, CV_64FC1));
+            normalized_delta_s.push_back(cv::Mat(L, 2, CV_32FC1));
             
-            double inverse_transform[4];
+            float inverse_transform[4];
             std::copy(transformations_[i], transformations_[i]+4, inverse_transform);
             
-            double s_square = inverse_transform[0]*inverse_transform[0] + inverse_transform[1]*inverse_transform[1];
+            float s_square = inverse_transform[0]*inverse_transform[0] + inverse_transform[1]*inverse_transform[1];
             
             inverse_transform[0] /= s_square;
             inverse_transform[1] = -inverse_transform[1] / s_square;
@@ -395,8 +396,8 @@ protected:
             inverse_transform[3] = inverse_transform[0];
             
             for(int l=0; l<L; l++) {
-                const double *residual = delta_s[i].ptr<double>(l);
-                double *normalized_residual = normalized_delta_s[i].ptr<double>(l);
+                const float *residual = delta_s[i].ptr<float>(l);
+                float *normalized_residual = normalized_delta_s[i].ptr<float>(l);
                 
                 normalized_residual[0] = inverse_transform[0] * residual[0] + inverse_transform[1] * residual[1];
                 normalized_residual[1] = inverse_transform[2] * residual[0] + inverse_transform[3] * residual[1];
@@ -404,49 +405,49 @@ protected:
         }
     }
     
-    void computeInteroccularDistances(const MatVector& s_star, int eye_index1, int eye_index2, std::vector<double>& distances)
+    void computeInteroccularDistances(const MatVector& s_star, int eye_index1, int eye_index2, std::vector<float>& distances)
     {
         distances.reserve(s_star.size());
         
         for(unsigned int i=0; i<s_star.size(); i++) {
-            const double *eye1 = s_star[i].ptr<double>(eye_index1);
-            const double *eye2 = s_star[i].ptr<double>(eye_index2);
+            const float *eye1 = s_star[i].ptr<float>(eye_index1);
+            const float *eye2 = s_star[i].ptr<float>(eye_index2);
             
             distances.push_back(std::sqrt((eye1[0]-eye2[0])*(eye1[0]-eye2[0]) + (eye1[1]-eye2[1])*(eye1[1]-eye2[1])));
         }
     }
     
-    void computeMeanShape(double* mean_shape, const MatVector& s_star, const std::vector<cv::Rect>& bounding_boxes) const
+    void computeMeanShape(float* mean_shape, const MatVector& s_star, const std::vector<cv::Rect>& bounding_boxes) const
     {
         int L = s_star[0].rows;
         int training_set_size = s_star.size();
-        cv::Mat mean_shape_mat = cv::Mat::zeros(L, 2, CV_64FC1);
+        cv::Mat mean_shape_mat = cv::Mat::zeros(L, 2, CV_32FC1);
         
         for(int i=0; i<training_set_size; i+=R_) {
-            cv::Mat normalized_shape(L, 2, CV_64FC1);
+            cv::Mat normalized_shape(L, 2, CV_32FC1);
             s_star[i].copyTo(normalized_shape);
             
-            alignment_method_->normalizeShapeAccordingToFaceBoundingBox((double*) normalized_shape.data, bounding_boxes[i]);
+            alignment_method_->normalizeShapeAccordingToFaceBoundingBox((float*) normalized_shape.data, bounding_boxes[i]);
             mean_shape_mat += normalized_shape;
         }
         
         mean_shape_mat /= (training_set_size / R_);
         
-        const double *mean_shape_mat_data = (double*) mean_shape_mat.data;
+        const float *mean_shape_mat_data = (float*) mean_shape_mat.data;
         std::copy(mean_shape_mat_data, mean_shape_mat_data+2*L, mean_shape);
     }
     
-    double computeMeanError(const MatVector& delta_s, const std::vector<double>& inter_occular_distances) const
+    double computeMeanError(const MatVector& delta_s, const std::vector<float>& inter_occular_distances) const
     {
         int training_set_size = delta_s.size();
         int L = delta_s[0].rows;
         
-        double error = 0.0;
+        float error = 0.0;
         for(int i=0; i<training_set_size; i++) {
-            double inter_occular_distance = inter_occular_distances[i];
+            float inter_occular_distance = inter_occular_distances[i];
             
             for(int l=0; l<L; l++) {
-                const double *residual = delta_s[i].ptr<double>(l);
+                const float *residual = delta_s[i].ptr<float>(l);
                 error += std::sqrt(residual[0] * residual[0] + residual[1] * residual[1]) / inter_occular_distance;
             }
         }
@@ -458,7 +459,7 @@ protected:
     const unsigned int R_, T_, N_, D_;
     AlignmentMethod* alignment_method_;
     ForestRegressorTraining forest_regressor_training_;
-    std::vector<double*> transformations_;
+    std::vector<float*> transformations_;
 };
 
 
@@ -480,7 +481,7 @@ public:
         alignment_method_ = new LocalRegressorAlignment(T_, N_, D_, L);
         
         std::cout << "Computing mean shape..." << std::endl;
-        double mean_shape[2*L];
+        float mean_shape[2*L];
         computeMeanShape(mean_shape, s_star, bounding_boxes);
         alignment_method_->setMeanShape(mean_shape);
 
@@ -499,15 +500,15 @@ public:
         std::vector<cv::Mat> delta_s;
         delta_s.reserve(training_set_size);
         for(int i=0; i<training_set_size; i++)
-            delta_s.push_back(cv::Mat(L, 2, CV_64FC1));
+            delta_s.push_back(cv::Mat(L, 2, CV_32FC1));
         
-        std::vector<double> inter_occular_distances;
+        std::vector<float> inter_occular_distances;
         computeInteroccularDistances(s_star, eye_index1, eye_index2, inter_occular_distances);
         
         std::cout << std::endl << std::fixed << std::setprecision(2);
         
         for(unsigned int t=0; t<T_; t++) {
-            double time = std::time(NULL);
+            float time = std::time(NULL);
             
             std::cout << "Starting iteration #" << t+1 << std::endl;
             
@@ -544,6 +545,22 @@ public:
         for(unsigned int t=0; t<T_; t++)
             delete[] forest_regressors[t];
         delete[] forest_regressors;
+    }
+};
+
+
+class ForestRegressorLibLinearFormat: public ForestRegressor
+{
+public:
+    inline void getLocalBinaryFeatureVector(SparseVector::iterator lbf, const double *landmark, const cv::Mat& img, const double* transformation_matrix) const
+    {
+        for(int n=0; n<N_; n++) {
+            Node node;
+            node.index = leaves_number_*N_*l_ + leaves_number_*n + forest_[n].getBinaryOutputIndex(landmark, img, transformation_matrix) + 1;
+            node.value = 1.0;
+            *lbf = node;
+            lbf++;
+        }
     }
 };
 

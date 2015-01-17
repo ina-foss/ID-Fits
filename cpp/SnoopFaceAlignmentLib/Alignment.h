@@ -20,10 +20,8 @@
 
 #include <vector>
 #include "opencv2/opencv.hpp"
-#include "tracker/FaceTracker.hpp"
 #include <SnoopFaceAlignmentLib/ForestBasedRegression.h>
 
-using namespace FACETRACKER;
 
 
 class LandmarkDetector
@@ -39,6 +37,13 @@ protected:
 };
 
 
+
+#if USE_CSIRO_ALIGNMENT == 1
+
+#include "tracker/FaceTracker.hpp"
+
+using namespace FACETRACKER;
+
 class CSIROLandmarkDetector: public LandmarkDetector
 {
 public:
@@ -51,6 +56,8 @@ private:
     FaceTracker *tracker_;
     FaceTrackerParams *tracker_params_;
 };
+
+#endif
 
 
 class LBFLandmarkDetector: public LandmarkDetector
@@ -72,7 +79,7 @@ class FaceNormalization
 public:
     void setReferenceShape(const cv::Mat& reference_shape);
     void normalize(cv::Mat& img, const cv::Mat& landmarks) const;
-    void computeSimilarityTransform(const double* src, double* transformation) const;
+    void computeSimilarityTransform(const float* src, float* transformation) const;
     
 private:
     cv::Mat reference_shape_;

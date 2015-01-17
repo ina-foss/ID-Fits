@@ -19,6 +19,7 @@ from libcpp.vector cimport vector
 from libcpp.string cimport string
 from cython.operator cimport dereference as deref
 
+import os
 import numpy as np
 cimport numpy as np
 
@@ -58,24 +59,33 @@ cdef class LandmarkDetector:
         return createPyMat(self.thisptr.getReferenceShape())
 
 
-cdef class CSIROLandmarkDetector(LandmarkDetector):
-
-    def __cinit__(self):
-        initMatConversion()
-        self.thisptr = new _CSIROLandmarkDetector(config.models_path + "/csiro_alignment/face.mytracker", config.models_path + "/csiro_alignment/face.mytrackerparams")
-
-
-    def __dealloc__(self):
-        del self.thisptr
     
+if "USE_CSIRO_ALIGNMENT" in os.environ and os.environ["USE_CSIRO_ALIGNMENT"] == 1:
+    DEF USE_CSIRO_ALIGNMENT = 1
+else:
+    DEF USE_CSIRO_ALIGNMENT = 0
 
-    def detectLandmarks(self, np.ndarray img):
-        cdef:
-            _Mat _img, _landmarks
-            _Rect _empty
-        createCMat(img, _img)
-        self.thisptr.detectLandmarks(_img, _empty, _landmarks)
-        return createPyMat(_landmarks)
+    
+IF USE_CSIRO_ALIGNMENT:
+
+    cdef class CSIROLandmarkDetector(LandmarkDetector):
+
+        def __cinit__(self):
+            initMatConversion()
+            self.thisptr = new _CSIROLandmarkDetector(config.models_path + "/csiro_alignment/face.mytracker", config.models_path + "/csiro_alignment/face.mytrackerparams")
+
+
+        def __dealloc__(self):
+            del self.thisptr
+
+
+        def detectLandmarks(self, np.ndarray img):
+            cdef:
+                _Mat _img, _landmarks
+                _Rect _empty
+            createCMat(img, _img)
+            self.thisptr.detectLandmarks(_img, _empty, _landmarks)
+            return createPyMat(_landmarks)
  
 
 
@@ -91,14 +101,14 @@ cdef class LBFLandmarkDetector(LandmarkDetector):
 
         if detector == "opencv":
             if landmarks == 51:
-                model_file = "alignment/lbf_regression_model_51_landmarks_opencv_detector.txt"
+                model_file = "alignment/lbf_regression_model_51_landmarks_opencv_detector.bin"
             else:
-                model_file = "alignment/lbf_regression_model_68_landmarks_opencv_detector.txt"
+                model_file = "alignment/lbf_regression_model_68_landmarks_opencv_detector.bin"
         elif detector == "estimated":
             if landmarks == 51:
-                model_file = "alignment/lbf_regression_model_51_landmarks_estimated_bounding_box.txt"
+                model_file = "alignment/lbf_regression_model_51_landmarks_estimated_bounding_box.bin"
             else:
-                model_file = "alignment/lbf_regression_model_68_landmarks_estimated_bounding_box.txt"
+                model_file = "alignment/lbf_regression_model_68_landmarks_estimated_bounding_box.bin"
         else:
             raise Exception("Wrong detector argument")
 
@@ -147,4 +157,7 @@ cdef class FaceNormalization:
         createCMat(landmarks, _landmarks)
         self.thisptr.normalize(_img, _landmarks)
         return createPyMat(_img)
+
+
+
 
