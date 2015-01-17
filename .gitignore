@@ -1,0 +1,9 @@
+# Compiled file
+*.so
+cpp_wrapper/*.cpp
+cpp_wrapper/build
+cpp_wrapper/cython_debug
+*.pyc
+
+# Temporary files
+*~
