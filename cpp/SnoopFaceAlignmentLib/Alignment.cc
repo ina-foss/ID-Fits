@@ -120,7 +120,7 @@ void FaceNormalization::setReferenceShape(const cv::Mat& reference_shape)
     L_ = reference_shape.rows;
 }
 
-void FaceNormalization::normalize(cv::Mat& img, const cv::Mat& landmarks) const
+float FaceNormalization::normalize(cv::Mat& img, const cv::Mat& landmarks) const
 {
     cv::Mat input_img;
     if(img.rows < 250 || img.cols < 250) {
@@ -145,16 +145,18 @@ void FaceNormalization::normalize(cv::Mat& img, const cv::Mat& landmarks) const
         img.copyTo(input_img);
     
     float transformation[6];
-    computeSimilarityTransform((float*) landmarks.data, transformation);
+    float relative_error = computeSimilarityTransform((float*) landmarks.data, transformation);
     cv::warpAffine(input_img, img, cv::Mat(2, 3, CV_32FC1, transformation), img.size());
     
     if(img.rows != 250 || img.cols != 250) {
       cv::Mat cropped(img, cv::Rect(0, 0, 250, 250));
       cropped.copyTo(img);
     }
+
+    return relative_error;
 }
 
-void FaceNormalization::computeSimilarityTransform(const float* src, float* transformation) const
+float FaceNormalization::computeSimilarityTransform(const float* src, float* transformation) const
 {
     Eigen::Matrix<float, Eigen::Dynamic, 4> A(2*L_, 4);
     Eigen::VectorXf b(2*L_);
@@ -187,5 +189,7 @@ void FaceNormalization::computeSimilarityTransform(const float* src, float* tran
     transformation[3] = sol(1);
     transformation[4] = sol(0);
     transformation[5] = sol(3);
+
+    return ((A*sol-b).norm() / b.norm());
 }
 

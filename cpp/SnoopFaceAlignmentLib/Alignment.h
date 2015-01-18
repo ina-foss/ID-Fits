@@ -78,8 +78,8 @@ class FaceNormalization
 {
 public:
     void setReferenceShape(const cv::Mat& reference_shape);
-    void normalize(cv::Mat& img, const cv::Mat& landmarks) const;
-    void computeSimilarityTransform(const float* src, float* transformation) const;
+    float normalize(cv::Mat& img, const cv::Mat& landmarks) const;
+    float computeSimilarityTransform(const float* src, float* transformation) const;
     
 private:
     cv::Mat reference_shape_;

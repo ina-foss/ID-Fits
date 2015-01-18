@@ -43,7 +43,7 @@ cdef extern from "Alignment.h":
 
     cdef cppclass _FaceNormalization "FaceNormalization":
         void setReferenceShape(const _Mat&)
-        void normalize(_Mat&, _Mat&) const
+        float normalize(_Mat&, _Mat&) const
 
 
 cdef class LandmarkDetector:
@@ -151,12 +151,16 @@ cdef class FaceNormalization:
         self.thisptr.setReferenceShape(_reference_landmarks)
 
 
-    def normalize(self, np.ndarray img, landmarks):
+    def normalize(self, np.ndarray img, landmarks, return_relative_error=False):
         cdef _Mat _img, _landmarks
         createCMat(img, _img)
         createCMat(landmarks, _landmarks)
-        self.thisptr.normalize(_img, _landmarks)
-        return createPyMat(_img)
+        relative_error = self.thisptr.normalize(_img, _landmarks)
+
+        if return_relative_error:
+            return createPyMat(_img), relative_error
+        else:
+            return createPyMat(_img)
 
 
 

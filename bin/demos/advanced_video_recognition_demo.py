@@ -19,7 +19,6 @@ import os
 import argparse
 import cv2
 import numpy as np
-from matplotlib import pyplot
 
 import fix_imports
 
@@ -28,13 +27,46 @@ from database import loadDatabase
 from search import *
 from filtering import Filter
 from face_detector import FaceDetectorAndTracker
-from scores_accumulator import ScoresAccumulator
 from learning.joint_bayesian import jointBayesianDistance
 from utils.file_manager import pickleLoad
 
 from cpp_wrapper.alignment import FaceNormalization
 from cpp_wrapper.descriptors import *
 
+
+
+class DescriptorsAccumulator:
+
+    def __init__(self):
+        self.reset()
+
+
+    def add(self, descriptor):
+        self.accumulator.append(descriptor)
+        
+        if self.center is not None:
+            self.center = (self.center * n + descriptor) / float(n+1)
+        else:
+            self.center = descriptor
+            
+        self.distances = np.linalg.norm(np.asarray(self.accumulator)-self.center, axis=1)
+        self.n += 1
+
+
+    def getError(self):
+        return self.n, np.mean(self.distances)
+
+
+    def getClosestFromCenter(self):
+        return self.accumulator[np.argmin(self.distances)]
+
+
+    def reset(self):
+        self.n = 0
+        self.accumulator = []
+        self.center = None
+        
+        
 
 
 def getLinesFromLandmarks(shape):
@@ -92,12 +124,10 @@ if __name__ == "__main__":
     parser.add_argument("-d", dest="database", default="lfw_normalized_lbf_68_landmarks", help="database")
     parser.add_argument("-o", dest="output_file", help="where to write processed file")
     parser.add_argument("-n", dest="nn", type=int, default=50, help="number of neighbors in NN")
-    parser.add_argument("-v", dest="verbose", action="store_true", help="verbose output")
     args = parser.parse_args()
     nn = args.nn
     descriptor_type = args.descriptor
     database_name = args.database
-    verbose = args.verbose
     
     video_file = args.input_video_file
     video = cv2.VideoCapture(video_file)
@@ -108,7 +138,7 @@ if __name__ == "__main__":
         output_file = args.output_file
         video_writer = cv2.VideoWriter(
             output_file,
-            int(video.get(6)),
+            877677894,
             video.get(5),
             (int(video.get(3)), int(video.get(4)))
         )
@@ -138,7 +168,7 @@ if __name__ == "__main__":
     n = 0
     face_detector_freq = int(fps / 2)
     shapes = []
-    scores_accumulator = ScoresAccumulator(max_size=int(1e4))
+    accumulators = []
     
     while True:
         video.grab()
@@ -153,14 +183,14 @@ if __name__ == "__main__":
             shapes = detector_and_tracker.detect(image)
             filters = []
             for i, shape in enumerate(shapes):
-                filters.append(Filter(n=3))
+                filters.append(Filter(n=1))
                 shapes[i] = filters[-1].filter(shape)
-
+            if len(shapes) != len(accumulators):
+                accumulators = [DescriptorsAccumulator() for _ in shapes]
         elif len(shapes) > 0:
             shapes = detector_and_tracker.track(image, shapes)
             for i, shape in enumerate(shapes):
                 shapes[i] = filters[i].filter(shape)
-                
         else:
             filters = []
 
@@ -168,15 +198,35 @@ if __name__ == "__main__":
             displayShape(frame, shape)
 
             desc = computeDescriptor(image, descriptor)
+            accumulators[i].add(desc)
+
+            for acc in accumulators:
+                samples_nb, error = acc.getError()
+
+                if error > 0.3:
+                    print samples_nb, error
+                    if samples_nb < 4:
+                        print "Not enough samples, resetting accumulator"
+                        acc.reset()
+                        continue
+                    
+                    closest_from_center = acc.getClosestFromCenter()
+                    acc.reset()
+                    nn_scores, _ = nnSumSearch(closest_from_center, database, nn, similarity=similarity)
+                    
+                    output = ""
+                    for label, score in nn_scores[:6]:
+                        output += "%s: %0.2f \t"%(label, score)
+                    print output
+
+            """
             nn_scores, _ = nnSumSearch(desc, database, nn, similarity=similarity)
-            scores_accumulator.addScores(nn_scores[:5], n)
 
-            if verbose:
-                output = ""
-                for label, score in nn_scores[:5]:
-                    output += "%s: %0.2f \t"%(label, score)
-                print output
-
+            output = ""
+            for label, score in nn_scores[:6]:
+                output += "%s: %0.2f \t"%(label, score)
+            print output
+            """
         
         cv2.imshow("Alignment demo", frame)
         if cv2.waitKey(1) >= 0:
@@ -186,15 +236,3 @@ if __name__ == "__main__":
 
         if write_output:
             video_writer.write(frame)
-
-
-    best_labels = scores_accumulator.getBestLabels(tmax=n)
-    curves = scores_accumulator.getLabelsScores(best_labels, tmax=n)
-    xaxis = np.arange(n, dtype=np.float) / fps
-
-    print "Persons detected: " + " ".join(best_labels)
-
-    for label, curve in zip(best_labels, curves):
-        pyplot.plot(xaxis, curve, label=label)
-    pyplot.legend()
-    pyplot.show()

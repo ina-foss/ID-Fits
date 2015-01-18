@@ -15,4 +15,4 @@
 # License along with this library.
 
 
-ipython notebook --profile-dir=$(readlink -fn notebooks)/.ipython
+ipython2 notebook --profile-dir=$(readlink -fn notebooks)/.ipython

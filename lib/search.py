@@ -45,13 +45,13 @@ def nnSearch(descriptor, database, nn, similarity=np.inner):
     return sorted(nn_scores, key=lambda x: x[1], reverse=True), best_scores
 
 
-def nnSumSearch(descriptor, database, nn):
-    best_scores = nnList(descriptor, database, nn)
+def nnSumSearch(descriptor, database, nn, similarity=np.inner):
+    best_scores = nnList(descriptor, database, nn, similarity=similarity)
     nn_scores = {}
     for label, score in best_scores:
         if label not in nn_scores:
             nn_scores[label] = 0
-        nn_scores[label] += score
+        nn_scores[label] += score + 140
     nn_scores = zip(nn_scores.keys(), nn_scores.values())
 
     return sorted(nn_scores, key=lambda x: x[1], reverse=True), best_scores
