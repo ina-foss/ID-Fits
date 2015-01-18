@@ -34,12 +34,15 @@ from cpp_wrapper.descriptors import *
 
 
 
-def computeDescriptor(descriptor_type, image):
+def computeDescriptor(descriptor_type, database, image):
     detector = FaceDetector()
     alignment = LBFLandmarkDetector(detector="opencv", landmarks=68)
     face_normalization = FaceNormalization()
     face_normalization.setReferenceShape(alignment.getReferenceShape())
-    descriptor = LbpDescriptor(descriptor_type, pca=Pca(filename=os.path.join(config.models_path, "PCA.txt")), lda=Lda(os.path.join(config.models_path, "LDA.txt")))
+    pca = Pca(filename=os.path.join(config.models_path, "PCA_%s.txt" % database))
+    lda = Lda(os.path.join(config.models_path, "LDA_%s.txt" % database))
+    jb = pickleLoad(os.path.join(config.models_path, "JB_%s.txt" % database))
+    descriptor = LbpDescriptor(descriptor_type, pca=pca, lda=lda)
     
     face = detector.detectFaces(image)
     if len(face) == 0:
@@ -57,7 +60,6 @@ def computeDescriptor(descriptor_type, image):
     image = image[49:201, 84:166]
     
     if "jb" in descriptor_type:
-        jb = pickleLoad(os.path.join(config.models_path, "JB.txt"))
         desc = descriptor.compute(image, normalize=False)
         return jb.transform(desc[np.newaxis]).ravel()
     else:
@@ -69,8 +71,8 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description="Simple demo trying to retrieve the identity of an input image.")
     parser.add_argument("image_file", help="image of the person to identify")
-    parser.add_argument("-m", dest="descriptor", default="ulbp_pca_jb", help="database")
-    parser.add_argument("-d", dest="db", default="lfw_normalized_lbf_68_landmarks", help="database")
+    parser.add_argument("-m", dest="descriptor", default="ulbp_pca_jb", help="descriptor")
+    parser.add_argument("-d", dest="database", default="lfw_normalized_lbf_68_landmarks", help="database")
     parser.add_argument("-l", dest="label", default="", help="true label of the input image")
     parser.add_argument("-n", dest="neighbors", type=int, default=50, help="number of neighbors in NN search")
     parser.add_argument("-v", dest="verbose", action="store_true", help="verbose output")
@@ -80,15 +82,15 @@ if __name__ == "__main__":
     nn = args.neighbors
     true_label = args.label
     verbose = args.verbose
-    db = args.db
-    descriptor = args.descriptor
+    database_name = args.database
+    descriptor_type = args.descriptor
 
-    database = loadDatabase(desc=descriptor, db=db)
+    database = loadDatabase(desc=descriptor_type, db=database_name)
 
     img = cv2.imread(filename, cv2.CV_LOAD_IMAGE_GRAYSCALE)
-    desc = computeDescriptor(descriptor, img)
+    desc = computeDescriptor(descriptor_type, database_name, img)
 
-    if "jb" in descriptor:
+    if "jb" in descriptor_type:
         similarity = jointBayesianDistance
     else:
         similarity = np.inner

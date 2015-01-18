@@ -19,7 +19,7 @@ import os
 import argparse
 import numpy as np
 
-execfile("fix_imports.py")
+execfile(os.path.join(os.path.dirname(__file__), "fix_imports.py"))
 import config
 from datasets import lfw
 from learning.joint_bayesian import JointBayesian
@@ -44,9 +44,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Computes Joint Bayesian models")
     parser.add_argument("descriptors_file", help="descriptors on which to compute the model (e.g. ulbp_pca_not_normalized_lfwa.npy)")
+    parser.add_argument("-o", dest="output_file", default=None, help="where to save JB")
     args = parser.parse_args()
     
-    filename = args.descriptors_file
+    filename = args.descriptors_file.strip()
     print "Using %s descriptors"%filename
     if filename.find("_not_normalized_") < 0:
         raise Exception("Need to use a non normalized descriptor")
@@ -56,7 +57,10 @@ if __name__ == "__main__":
     data = np.load(args.descriptors_file)
     jb = computeJointBayesian(data)
 
-    filename = os.path.join(config.models_path, "JB.txt")
+    if args.output_file is None:
+        filename = os.path.join(config.models_path, "JB.txt")
+    else:
+        filename = args.output_file.strip()
     makedirsIfNeeded(filename)
     pickleSave(filename, jb)
     print "Results saved in %s" % filename

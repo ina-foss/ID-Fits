@@ -263,7 +263,7 @@ void AlignmentMethod::save(std::ostream& fs) const
     write_binary(fs, L_);
     
     for(unsigned int l=0; l<2*L_; l++)
-        write_binary(mean_shape_[l];
+        write_binary(fs, mean_shape_[l]);
     
     for(unsigned int t=0; t<T_; t++)
         for(unsigned int l=0; l<L_; l++)

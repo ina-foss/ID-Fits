@@ -95,25 +95,25 @@ cdef class LBFLandmarkDetector(LandmarkDetector):
 
     def __cinit__(self, detector="opencv", landmarks=51):
         initMatConversion()
-        
-        if landmarks != 51 and landmarks != 68:
+
+        if landmarks not in [51, 68]:
             raise Exception("Wrong landmarks number")
+        else:
+            landmarks_str = "%i_landmarks" % landmarks
 
         if detector == "opencv":
-            if landmarks == 51:
-                model_file = "alignment/lbf_regression_model_51_landmarks_opencv_detector.bin"
-            else:
-                model_file = "alignment/lbf_regression_model_68_landmarks_opencv_detector.bin"
+            detector_str = "opencv_detector"
         elif detector == "estimated":
-            if landmarks == 51:
-                model_file = "alignment/lbf_regression_model_51_landmarks_estimated_bounding_box.bin"
-            else:
-                model_file = "alignment/lbf_regression_model_68_landmarks_estimated_bounding_box.bin"
+            detector_str = "estimated_bounding_box"
+        elif detector == "perfect":
+            detector_str = "perfect_detector"
         else:
             raise Exception("Wrong detector argument")
 
+        model_file = os.path.join(config.models_path, "alignment", "lbf_regression_model_%s_%s.bin" % (landmarks_str, detector_str))
+
         self.thisptr = new _LBFLandmarkDetector()
-        (<_LBFLandmarkDetector*> self.thisptr).loadModel(config.models_path + "/" + model_file)
+        (<_LBFLandmarkDetector*> self.thisptr).loadModel(model_file)
 
 
     def __dealloc__(self):

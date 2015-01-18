@@ -25,7 +25,9 @@ import fix_imports
 import config
 from database import loadDatabase
 from search import *
+from filtering import Filter
 from face_detector import FaceDetectorAndTracker
+from learning.joint_bayesian import jointBayesianDistance
 from utils.file_manager import pickleLoad
 
 from cpp_wrapper.alignment import FaceNormalization
@@ -55,12 +57,14 @@ def displayShape(img, shape):
         cv2.line(img, tuple(line[0].astype(np.int)), tuple(line[1].astype(np.int)), (0,255,0))
 
 
-def initDescriptor(descriptor_type, reference_shape):
+def initDescriptor(descriptor_type, database_name, reference_shape):
     face_normalization = FaceNormalization()
     face_normalization.setReferenceShape(reference_shape)
-    pca = Pca(filename=os.path.join(config.models_path, "PCA.txt"))
-    lda = Lda(os.path.join(config.models_path, "LDA.txt"))
+    
+    pca = Pca(filename=os.path.join(config.models_path, "PCA_%s.txt" % database_name))
+    lda = Lda(os.path.join(config.models_path, "LDA_%s.txt" % database_name))
     descriptor = LbpDescriptor(descriptor_type, pca=pca, lda=lda)
+    
     return face_normalization, descriptor
     
 
@@ -69,7 +73,7 @@ def computeDescriptor(image, (face_normalization, descriptor)):
     image = image[49:201, 84:166]
 
     if "jb" in descriptor_type:
-        jb = pickleLoad(os.path.join(config.models_path, "JB.txt"))
+        jb = pickleLoad(os.path.join(config.models_path, "JB_%s.txt" % database_name))
         desc = descriptor.compute(image, normalize=False)
         return jb.transform(desc[np.newaxis]).ravel()
     else:
@@ -83,12 +87,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("input_video_file", help="video to process")
     parser.add_argument("-m", dest="descriptor", default="ulbp_pca_lda", help="database")
-    parser.add_argument("-d", dest="db", default="lfw_normalized_lbf_68_landmarks", help="database")
+    parser.add_argument("-d", dest="database", default="lfw_normalized_lbf_68_landmarks", help="database")
     parser.add_argument("-o", dest="output_file", help="where to write processed file")
     parser.add_argument("-n", dest="nn", type=int, default=50, help="number of neighbors in NN")
     args = parser.parse_args()
     nn = args.nn
     descriptor_type = args.descriptor
+    database_name = args.database
     
     video_file = args.input_video_file
     video = cv2.VideoCapture(video_file)
@@ -111,10 +116,11 @@ if __name__ == "__main__":
     
     
     detector_and_tracker = FaceDetectorAndTracker()
-    descriptor = initDescriptor(descriptor_type, detector_and_tracker.alignment_with_face_detector.getReferenceShape())
-    database = loadDatabase(desc=descriptor_type, db=args.db)
+    descriptor = initDescriptor(descriptor_type, database_name, detector_and_tracker.alignment_with_face_detector.getReferenceShape())
+    database = loadDatabase(desc=descriptor_type, db=database_name)
+    filters = []
 
-    if "jb" in descriptor:
+    if "jb" in descriptor_type:
         similarity = jointBayesianDistance
     else:
         similarity = np.inner
@@ -140,8 +146,17 @@ if __name__ == "__main__":
         
         if n % face_detector_freq == 0:
             shapes = detector_and_tracker.detect(image)
+            filters = []
+            for i, shape in enumerate(shapes):
+                filters.append(Filter())
+                shapes[i] = filters[-1].filter(shape)
         elif len(shapes) > 0:
             shapes = detector_and_tracker.track(image, shapes)
+            for i, shape in enumerate(shapes):
+                pass
+                shapes[i] = filters[i].filter(shape)
+        else:
+            filters = []
 
         for shape in shapes:
             displayShape(frame, shape)
