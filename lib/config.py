@@ -36,4 +36,4 @@ _300w_benchmark_path = os.path.join(benchmarks_path, "300w")
 
 descriptors_path = os.path.join(base_path, "descriptors")
 
-
+databases_path = os.path.join(base_path, "databases")

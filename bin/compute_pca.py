@@ -30,6 +30,8 @@ from learning.pca import *
 def compute(filename, dims, samples_nb, output_file=None):
     if filename.find("_not_normalized_") < 0:
         raise Exception("Need to use a non normalized descriptor")
+    if samples_nb <= 0:
+        samples_nb = None
         
     print "Using %s to compute PCA" % filename
 

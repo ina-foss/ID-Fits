@@ -15,6 +15,7 @@
 # License along with this library.
 
 
+import os
 import cPickle as pickle
 
 
@@ -26,3 +27,9 @@ def pickleSave(filename, obj):
 def pickleLoad(filename):
     f = open(filename, 'rb')
     return pickle.load(f)
+
+
+def makedirsIfNeeded(filename):
+    dirname = os.path.dirname(filename)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
