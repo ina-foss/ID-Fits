@@ -101,11 +101,7 @@ def loadData(dataset, preprocess=False):
         
 
 def preprocessData(raw_data):
-    data = []
-    for i in range(raw_data.shape[0]):
-        data.append(raw_data[i, 49:-49, 84:-84])
-    del raw_data
-    return data
+    return raw_data[:, 49:-49, 84:-84]
 
 
 

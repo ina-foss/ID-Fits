@@ -41,17 +41,17 @@ if __name__ == "__main__":
     # Train models
     print "\n\n------------- Training models -------------\n\n"
 
-    subprocess.call(["python2", compute_descriptor_script, "lfw" ,"training", "-c", "ulbp", lfw3d_dataset_file])
-    subprocess.call(["python2", learn_model_script, "lfw", os.path.join(training_descriptors_path, "ulbp_not_normalized_%s" % lfw3d_dataset), "pca", "200"])
-    subprocess.call(["python2", compute_descriptor_script, "lfw" ,"training", "-c", "ulbp_pca", lfw3d_dataset_file])
-    subprocess.call(["python2", learn_model_script, "lfw", os.path.join(training_descriptors_path, "ulbp_pca_not_normalized_%s" % lfw3d_dataset), "lda", "50"])
-    subprocess.call(["python2", learn_model_script, "lfw", os.path.join(training_descriptors_path, "ulbp_pca_not_normalized_%s" % lfw3d_dataset), "jb", "50"])
+    subprocess.check_call(["python2", compute_descriptor_script, "lfw" ,"training", "-c", "ulbp", lfw3d_dataset_file])
+    subprocess.check_call(["python2", learn_model_script, "lfw", os.path.join(training_descriptors_path, "ulbp_not_normalized_%s" % lfw3d_dataset), "pca", "200"])
+    subprocess.check_call(["python2", compute_descriptor_script, "lfw" ,"training", "-c", "ulbp_pca", lfw3d_dataset_file])
+    subprocess.check_call(["python2", learn_model_script, "lfw", os.path.join(training_descriptors_path, "ulbp_pca_not_normalized_%s" % lfw3d_dataset), "lda", "50"])
+    subprocess.check_call(["python2", learn_model_script, "lfw", os.path.join(training_descriptors_path, "ulbp_pca_not_normalized_%s" % lfw3d_dataset), "jb", "50"])
 
 
     # Compute test descriptors
     print "\n\n------------- Computing test descriptors -------------\n\n"
-    subprocess.call(["python2", compute_descriptor_script, "lfw" ,"test", "-cn", "ulbp_wpca", lfw3d_dataset_file])
-    subprocess.call(["python2", compute_descriptor_script, "lfw" ,"test", "-cn", "ulbp_pca_lda", lfw3d_dataset_file])
-    subprocess.call(["python2", compute_descriptor_script, "lfw" ,"test", "-c", "ulbp_pca_jb", lfw3d_dataset_file])
+    subprocess.check_call(["python2", compute_descriptor_script, "lfw" ,"test", "-cn", "ulbp_wpca", lfw3d_dataset_file])
+    subprocess.check_call(["python2", compute_descriptor_script, "lfw" ,"test", "-cn", "ulbp_pca_lda", lfw3d_dataset_file])
+    subprocess.check_call(["python2", compute_descriptor_script, "lfw" ,"test", "-c", "ulbp_pca_jb", lfw3d_dataset_file])
 
 

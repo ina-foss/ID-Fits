@@ -88,7 +88,7 @@ if __name__ == "__main__":
 
     t = time.time()
 
-    descs = lfw_bench.computeDescriptorsForSets(np.asarray(data), descriptor_type=descriptor_type, sets=sets, learned_models_dirs=learned_models_dirs, normalize=normalize)
+    descs = lfw_bench.computeDescriptorsForSets(data, descriptor_type=descriptor_type, sets=sets, learned_models_dirs=learned_models_dirs, normalize=normalize)
     
     print "Done in %.2f seconds"%(time.time()-t)
 

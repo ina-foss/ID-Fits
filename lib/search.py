@@ -21,7 +21,7 @@ from scipy.signal import gaussian
 
 
 def nnList(descriptor, database, nn, similarity=np.inner):
-    best_scores = [(None, 0)]*nn
+    best_scores = [(None, -1e3)]*nn
     for test_desc, label in zip(*database):
         score = similarity(test_desc, descriptor)
         if score > best_scores[-1][1]:
@@ -33,8 +33,8 @@ def nnList(descriptor, database, nn, similarity=np.inner):
     return best_scores
 
 
-def nnSearch(descriptor, database, nn):
-    best_scores = nnList(descriptor, database, nn)
+def nnSearch(descriptor, database, nn, similarity=np.inner):
+    best_scores = nnList(descriptor, database, nn, similarity=similarity)
     nn_scores = {}
     for label, score in best_scores:
         if label not in nn_scores:
@@ -45,13 +45,13 @@ def nnSearch(descriptor, database, nn):
     return sorted(nn_scores, key=lambda x: x[1], reverse=True), best_scores
 
 
-def nnSumSearch(descriptor, database, nn):
-    best_scores = nnList(descriptor, database, nn)
+def nnSumSearch(descriptor, database, nn, similarity=np.inner):
+    best_scores = nnList(descriptor, database, nn, similarity=similarity)
     nn_scores = {}
     for label, score in best_scores:
         if label not in nn_scores:
             nn_scores[label] = 0
-        nn_scores[label] += score
+        nn_scores[label] += score + 140
     nn_scores = zip(nn_scores.keys(), nn_scores.values())
 
     return sorted(nn_scores, key=lambda x: x[1], reverse=True), best_scores

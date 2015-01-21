@@ -18,7 +18,7 @@
 import os
 
 
-base_path = os.path.realpath(os.path.join(os.path.dirname(__file__), os.pardir))
+base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 
 bin_path = os.path.join(base_path, "bin")
 
@@ -36,4 +36,4 @@ _300w_benchmark_path = os.path.join(benchmarks_path, "300w")
 
 descriptors_path = os.path.join(base_path, "descriptors")
 
-
+databases_path = os.path.join(base_path, "databases")

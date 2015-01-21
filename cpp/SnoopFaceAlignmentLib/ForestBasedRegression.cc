@@ -17,6 +17,8 @@
 
 #include <SnoopFaceAlignmentLib/ForestBasedRegression.h>
 #include <iomanip>
+#include <stdexcept>
+
 
 
 BinaryTree::BinaryTree(): depth_(0), pos_(0), left_(NULL), right_(NULL)
@@ -33,9 +35,12 @@ BinaryTree::BinaryTree(int depth, int pos): depth_(depth), pos_(pos), left_(NULL
 
 BinaryTree::BinaryTree(std::istream& fs, unsigned int total_tree_depth)
 {
-    fs >> depth_ >> pos_;
-    fs >> index1_[0] >> index1_[1];
-    fs >> index2_[0] >> index2_[1];
+    read_binary(fs, depth_);
+    read_binary(fs, pos_);
+    read_binary(fs, index1_[0]);
+    read_binary(fs, index1_[1]);
+    read_binary(fs, index2_[0]);
+    read_binary(fs, index2_[1]);
     
     if(depth_ < total_tree_depth) {
         left_ = new BinaryTree(fs, total_tree_depth);
@@ -81,9 +86,12 @@ BinaryTree& BinaryTree::operator=(const BinaryTree& other)
 
 std::ostream& operator<<(std::ostream& os, const BinaryTree& binary_tree)
 {
-    os << binary_tree.depth_ << " " << binary_tree.pos_ << " ";
-    os << binary_tree.index1_[0] << " " << binary_tree.index1_[1] << " ";
-    os << binary_tree.index2_[0] << " " << binary_tree.index2_[1] << std::endl;
+    write_binary(os, binary_tree.depth_);
+    write_binary(os, binary_tree.pos_);
+    write_binary(os, binary_tree.index1_[0]);
+    write_binary(os, binary_tree.index1_[1]);
+    write_binary(os, binary_tree.index2_[0]);
+    write_binary(os, binary_tree.index2_[1]);
     
     if(binary_tree.left_ && binary_tree.right_) {
         os << *binary_tree.left_;
@@ -107,15 +115,14 @@ std::ostream& operator<<(std::ostream& os, const ForestRegressor& forest_regress
         os << forest_regressor.forest_[n];
     
     int L = forest_regressor.lookup_table_[0].rows;
-    os << L << std::endl;
+    write_binary(os, L);
     
     for(int n=0; n<forest_regressor.N_; n++) {
         for(int i=0; i<forest_regressor.leaves_number_; i++) {
-            const double* lookup_table_data = (double*) forest_regressor.lookup_table_[n*forest_regressor.leaves_number_ + i].data;
+            const float* lookup_table_data = (float*) forest_regressor.lookup_table_[n*forest_regressor.leaves_number_ + i].data;
             
             for(int l=0; l<2*L; l++)
-                os << lookup_table_data[l] << " ";
-            os << std::endl;
+	        write_binary(os, lookup_table_data[l]);
         }
     }
     
@@ -136,7 +143,7 @@ AlignmentMethod::AlignmentMethod(int T, int N, int D, int L):
 
 AlignmentMethod::AlignmentMethod(const std::string& filename)
 {
-    std::ifstream fs(filename.c_str());
+    std::ifstream fs(filename.c_str(), std::ios::in | std::ios::binary);
     if(!fs.is_open())
         throw std::runtime_error("Cannot open file " + filename);
     
@@ -154,7 +161,7 @@ AlignmentMethod::~AlignmentMethod()
     }
 }
 
-void AlignmentMethod::setMeanShape(double* mean_shape)
+void AlignmentMethod::setMeanShape(float* mean_shape)
 {
     mean_shape_ = mean_shape;
 }
@@ -166,43 +173,38 @@ void AlignmentMethod::setForestRegressors(ForestRegressor** forest_regressors)
 
 void AlignmentMethod::saveModel(const std::string& filename) const
 {
-    std::ofstream fs(filename.c_str());
+    std::ofstream fs(filename.c_str(), std::ios::out | std::ios::binary);
     if(!fs.is_open())
         throw std::runtime_error("Cannot open file " + filename);
-    
-    fs << std::scientific << std::setprecision(10);
     
     save(fs);
 }
 
 cv::Mat AlignmentMethod::align(const cv::Rect& bounding_box, const cv::Mat& img) const
 {
-    cv::Mat gray_img(img.rows, img.cols, img.type());
-    if(img.channels() == 3)
-        cv::cvtColor(img, gray_img, CV_RGB2GRAY);
-    else
-        gray_img = cv::Mat(img);
+    if(img.channels() != 1)
+        throw std::runtime_error("image should be grayscale");
     
-    cv::Mat shape(L_, 2, CV_64FC1);
-    double * shape_data = (double*) shape.data;
+    cv::Mat shape(L_, 2, CV_32FC1);
+    float* shape_data = (float*) shape.data;
     
     std::copy(mean_shape_, mean_shape_+2*L_, shape_data);
     
     adaptNormalizedShapeToFaceBoundingBox(shape_data, bounding_box);
-    double transformation_matrix[4];
+    float transformation_matrix[4];
     
     for(unsigned int t=0; t<T_; t++) {
         computeTransformation(shape_data, transformation_matrix);
-        updateRule(t, shape, gray_img, transformation_matrix);
+        updateRule(t, shape, img, transformation_matrix);
     }
     
     return shape;
 }
 
-void AlignmentMethod::computeTransformation(const double* shape, double* transformation_matrix) const
+void AlignmentMethod::computeTransformation(const float* shape, float* transformation_matrix) const
 {
-    Eigen::Matrix<double, Eigen::Dynamic, 4> A(2*L_, 4);
-    Eigen::VectorXd b(2*L_);
+    Eigen::Matrix<float, Eigen::Dynamic, 4> A(2*L_, 4);
+    Eigen::VectorXf b(2*L_);
     
     for(unsigned int l=0; l<L_; l++) {
         A(2*l, 0) = shape[2*l];
@@ -219,19 +221,19 @@ void AlignmentMethod::computeTransformation(const double* shape, double* transfo
         b(2*l+1) = mean_shape_[2*l+1];
     }
     
-    Eigen::Matrix<double, Eigen::Dynamic, 4> cov;
+    Eigen::Matrix<float, Eigen::Dynamic, 4> cov;
     cov.noalias() = A.transpose() * A;
     
-    Eigen::Vector4d sol = cov.ldlt().solve(A.transpose() *b);
+    Eigen::Vector4f sol = cov.ldlt().solve(A.transpose() *b);
     
-    double scaling_factor = 1.0 / std::sqrt(sol(0)*sol(0) + sol(1)*sol(1));
+    float scaling_factor = 1.0 / std::sqrt(sol(0)*sol(0) + sol(1)*sol(1));
     transformation_matrix[0] = sol(0) * scaling_factor * scaling_factor;
     transformation_matrix[1] = sol(1) * scaling_factor * scaling_factor;
     transformation_matrix[2] = -transformation_matrix[1];
     transformation_matrix[3] = transformation_matrix[0];
 }
 
-void AlignmentMethod::normalizeShapeAccordingToFaceBoundingBox(double* shape, const cv::Rect& bounding_box) const
+void AlignmentMethod::normalizeShapeAccordingToFaceBoundingBox(float* shape, const cv::Rect& bounding_box) const
 {
     for(unsigned int l=0; l<L_; l++) {
         shape[2*l] = (shape[2*l] - bounding_box.x) / bounding_box.width;
@@ -239,7 +241,7 @@ void AlignmentMethod::normalizeShapeAccordingToFaceBoundingBox(double* shape, co
     }
 }
 
-void AlignmentMethod::adaptNormalizedShapeToFaceBoundingBox(double* shape, const cv::Rect& bounding_box) const
+void AlignmentMethod::adaptNormalizedShapeToFaceBoundingBox(float* shape, const cv::Rect& bounding_box) const
 {
     for(unsigned int l=0; l<L_; l++) {
         shape[2*l] = (shape[2*l] * bounding_box.width) + bounding_box.x;
@@ -249,17 +251,19 @@ void AlignmentMethod::adaptNormalizedShapeToFaceBoundingBox(double* shape, const
 
 cv::Mat AlignmentMethod::getMeanShape() const
 {
-    return cv::Mat(L_, 2, CV_64FC1, mean_shape_);
+    return cv::Mat(L_, 2, CV_32FC1, mean_shape_);
 }
 
 
 void AlignmentMethod::save(std::ostream& fs) const
 {
-    fs << T_ << " " << N_ << " " << D_ << " " << L_ << std::endl;
+    write_binary(fs, T_);
+    write_binary(fs, N_);
+    write_binary(fs, D_);
+    write_binary(fs, L_);
     
-    for(unsigned int l=0; l<L_; l++)
-        fs << mean_shape_[2*l] << " " << mean_shape_[2*l+1] << " ";
-    fs << std::endl;
+    for(unsigned int l=0; l<2*L_; l++)
+        write_binary(fs, mean_shape_[l]);
     
     for(unsigned int t=0; t<T_; t++)
         for(unsigned int l=0; l<L_; l++)
@@ -268,12 +272,16 @@ void AlignmentMethod::save(std::ostream& fs) const
 
 void AlignmentMethod::load(std::istream& fs)
 {
-    fs >> T_ >> N_ >> D_ >> L_;
+    read_binary(fs, T_);
+    read_binary(fs, N_);
+    read_binary(fs, D_);
+    read_binary(fs, L_);
+
     leaves_number_ = 1<<D_;
     
-    mean_shape_ = new double[2*L_];
-    for(unsigned int l=0; l<L_; l++)
-        fs >> mean_shape_[2*l] >> mean_shape_[2*l+1];
+    mean_shape_ = new float[2*L_];
+    for(unsigned int l=0; l<2*L_; l++)
+        read_binary(fs, mean_shape_[l]);
     
     forest_regressors_ = new ForestRegressor*[T_];
     for(unsigned int t=0; t<T_; t++) {
@@ -296,15 +304,15 @@ LocalRegressorAlignment::LocalRegressorAlignment(const std::string& filename):
 {
 }
 
-void LocalRegressorAlignment::updateRule(int t, cv::Mat& shape, const cv::Mat& img, const double* transformation_matrix) const
+void LocalRegressorAlignment::updateRule(int t, cv::Mat& shape, const cv::Mat& img, const float* transformation_matrix) const
 {
     for(unsigned int l=0; l<L_; l++) {
-        double *landmark = shape.ptr<double>(l);
+        float *landmark = shape.ptr<float>(l);
         
-        cv::Mat output = cv::Mat::zeros(1, 2, CV_64FC1);
+        cv::Mat output = cv::Mat::zeros(1, 2, CV_32FC1);
         forest_regressors_[t][l].getOutput(output, landmark, img, transformation_matrix);
         
-        const double* output_data = (double*) output.data;
+        const float* output_data = (float*) output.data;
         
         landmark[0] += output_data[0] * transformation_matrix[0] + output_data[1] * transformation_matrix[1];
         landmark[1] += output_data[0] * transformation_matrix[2] + output_data[1] * transformation_matrix[3];
@@ -323,18 +331,18 @@ LocalBinaryFeatureAlignment::LocalBinaryFeatureAlignment(const std::string& file
 {
 }
 
-void LocalBinaryFeatureAlignment::updateRule(int t, cv::Mat& shape, const cv::Mat& img, const double* transformation_matrix) const
+void LocalBinaryFeatureAlignment::updateRule(int t, cv::Mat& shape, const cv::Mat& img, const float* transformation_matrix) const
 {
-    double* shape_data = (double*) shape.data;
-    double prev_shape_data[2*L_];
+    float* shape_data = (float*) shape.data;
+    float prev_shape_data[2*L_];
     std::copy(shape_data, shape_data+2*L_, prev_shape_data);
     
     for(unsigned int l=0; l<L_; l++) {
-        cv::Mat output = cv::Mat::zeros(L_, 2, CV_64FC1);
+        cv::Mat output = cv::Mat::zeros(L_, 2, CV_32FC1);
         
         forest_regressors_[t][l].getOutput(output, prev_shape_data+2*l, img, transformation_matrix);
         
-        const double* output_data = (double*) output.data;
+        const float* output_data = (float*) output.data;
         for(unsigned int l2=0; l2<L_; l2++) {
             shape_data[2*l2] += output_data[2*l2] * transformation_matrix[0] + output_data[2*l2+1] * transformation_matrix[1];
             shape_data[2*l2+1] += output_data[2*l2] * transformation_matrix[2] + output_data[2*l2+1] * transformation_matrix[3];

@@ -25,7 +25,18 @@ from datasets import lfw
 from cpp_wrapper.descriptors import Pca
 
 
-def computeLDA(data, training_sets, dim, pca_dir):
+def computeLDA(data, dim):
+    samples_indexes = range(len(data))
+    indexes, y = lfw.loadTrainingDataLabels(samples_indexes, min_nb_samples_per_class=10)
+
+    samples = data[indexes]
+    lda = LDA(dim)
+    lda.fit(data[indexes], y)
+
+    return lda
+
+
+def computeLDAs(data, training_sets, dim, pca_dir):
     
     ldas = []
 

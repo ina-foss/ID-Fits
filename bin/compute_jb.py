@@ -19,38 +19,24 @@ import os
 import argparse
 import numpy as np
 
-execfile("fix_imports.py")
+execfile(os.path.join(os.path.dirname(__file__), "fix_imports.py"))
 import config
 from datasets import lfw
 from learning.joint_bayesian import JointBayesian
-from utils.file_manager import pickleSave
-from cpp_wrapper.descriptors import Pca
+from utils.file_manager import pickleSave, makedirsIfNeeded
 
 
 
-def computeJointBayesian(data, sets, pca_dir):
+def computeJointBayesian(data):
 
-    jbs = []
+    samples_indexes = range(len(data))
+    indexes, y = lfw.loadTrainingDataLabels(samples_indexes, min_nb_samples_per_class=10)
 
-    for i in range(len(sets)):
-        jbs.append(JointBayesian())
-        samples_indexes = []
-        for k in range(len(sets)-1):
-            samples_indexes += sets[(i+k+1) % len(sets)]
-
-        descs_id_for_lda, y = lfw.loadTrainingDataLabels(samples_indexes, min_nb_samples_per_class=10)
-
-        print "Computing Joint Bayesian #%d with %d classes of other 10 samples" % (i+1, len(set(y)))
-        samples = data[samples_indexes][descs_id_for_lda]
-
-        pca = Pca(filename=os.path.join(pca_dir, "set_%d.txt" % (i+1)))
-        compressed_samples = np.empty((samples.shape[0], pca.eigenvalues.shape[0]), dtype=np.float32)
-        for j in range(samples.shape[0]):
-            compressed_samples[j] = pca.project(samples[j])
+    print "Computing Joint Bayesian with %d classes of other 10 samples" % len(set(y))
+    jb = JointBayesian()
+    jb.fit(data[indexes], y)
         
-        jbs[-1].fit(compressed_samples, y)
-        
-    return jbs
+    return jb
 
 
 
@@ -58,27 +44,23 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Computes Joint Bayesian models")
     parser.add_argument("descriptors_file", help="descriptors on which to compute the model (e.g. ulbp_pca_not_normalized_lfwa.npy)")
+    parser.add_argument("-o", dest="output_file", default=None, help="where to save JB")
     args = parser.parse_args()
     
-    filename = args.descriptors_file
+    filename = args.descriptors_file.strip()
     print "Using %s descriptors"%filename
     if filename.find("_not_normalized_") < 0:
         raise Exception("Need to use a non normalized descriptor")
     
     basename = os.path.basename(os.path.splitext(filename)[0]).replace("_not_normalized_", "_")
-    pca_dir = os.path.join(config.models_path, "PCA", basename)
-    jb_dir = os.path.join(config.models_path,"JB", basename)
-    print "Using PCA files from %s"%pca_dir
     
-    sets = lfw.loadSetsPeople()
-    data = np.load(filename)
-    
-    jbs = computeJointBayesian(data, sets, pca_dir)
-    
-    if not os.path.exists(jb_dir):
-        os.makedirs(jb_dir)
-    
-    for i, jb in enumerate(jbs):
-        set_filename = os.path.join(jb_dir, "set_%d.txt"%(i+1))
-        pickleSave(set_filename, jb)
-    print "Results saved in directory %s"%jb_dir
+    data = np.load(args.descriptors_file)
+    jb = computeJointBayesian(data)
+
+    if args.output_file is None:
+        filename = os.path.join(config.models_path, "JB.txt")
+    else:
+        filename = args.output_file.strip()
+    makedirsIfNeeded(filename)
+    pickleSave(filename, jb)
+    print "Results saved in %s" % filename

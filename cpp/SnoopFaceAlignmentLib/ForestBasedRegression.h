@@ -25,7 +25,17 @@
 #include <cstdlib>
 #include <opencv2/opencv.hpp>
 #include <eigen3/Eigen/Cholesky>
-#include <SnoopFaceAlignmentLib/LibLinearWrapper.h>
+
+
+template<typename T>
+std::istream& read_binary(std::istream& stream, T& value) {
+    return stream.read(reinterpret_cast<char*>(&value), sizeof(T));
+}
+
+template<typename T>
+std::ostream& write_binary(std::ostream& stream, const T& value) {
+    return stream.write(reinterpret_cast<const char*>(&value), sizeof(T));
+}
 
 
 typedef std::vector<cv::Mat> MatVector;
@@ -43,8 +53,8 @@ public:
     
     unsigned int depth_;
     unsigned int pos_;
-    double index1_[2];
-    double index2_[2];
+    float index1_[2];
+    float index2_[2];
     BinaryTree* left_;
     BinaryTree* right_;
 };
@@ -57,7 +67,7 @@ class Feature
 public:
     virtual ~Feature() = 0;
     
-    inline static bool performTest(const double* index1, const double* index2, const double *landmark, const cv::Mat& img, const double* transformation_matrix)
+    inline static bool performTest(const float* index1, const float* index2, const float* landmark, const cv::Mat& img, const float* transformation_matrix)
     {
         int transformed_index1[2], transformed_index2[2];
         
@@ -80,7 +90,7 @@ public:
         return (pixel1 > pixel2);
     }
     
-    inline static void performTransformation(int* transformed_index, const double* index, const double* landmark, const double* transformation_matrix)
+    inline static void performTransformation(int* transformed_index, const float* index, const float* landmark, const float* transformation_matrix)
     {
         transformed_index[0] = landmark[0] + transformation_matrix[0]*index[0] + transformation_matrix[1]*index[1];
         transformed_index[1] = landmark[1] + transformation_matrix[2]*index[0] + transformation_matrix[3]*index[1];
@@ -100,7 +110,7 @@ public:
         return tree_;
     }
     
-    inline unsigned int getBinaryOutputIndex(const double* landmark, const cv::Mat& img, const double* transformation_matrix) const
+    inline unsigned int getBinaryOutputIndex(const float* landmark, const cv::Mat& img, const float* transformation_matrix) const
     {
         const BinaryTree *current_node = &tree_;
         
@@ -124,7 +134,6 @@ private:
 std::ostream& operator<<(std::ostream& os, const TreeRegressor& tree_regressor);
 
 
-typedef std::vector<Node> SparseVector;
 typedef std::vector<BinaryTree* > Forest_t;
 
 
@@ -151,17 +160,17 @@ public:
         for(int n=0; n<N_; n++) 
             forest_.push_back(TreeRegressor(BinaryTree(fs, D), D));
         
-        int L;
-        fs >> L;
+        unsigned int L;
+	read_binary(fs, L);
         
         lookup_table_.reserve(N_*leaves_number_);
         for(int n=0; n<N_; n++) {
             for(int i=0; i<leaves_number_; i++) {
-                lookup_table_.push_back(cv::Mat(L, 2, CV_64FC1));
-                double* lookup_table_data = (double*) lookup_table_[leaves_number_*n + i].data;
+                lookup_table_.push_back(cv::Mat(L, 2, CV_32FC1));
+                float* lookup_table_data = (float*) lookup_table_[leaves_number_*n + i].data;
                 
-                for(int l=0; l<2*L; l++)
-                    fs >> lookup_table_data[l];
+                for(unsigned int l=0; l<2*L; l++)
+		  read_binary(fs, lookup_table_data[l]);
             }
         }
     }
@@ -171,32 +180,21 @@ public:
         return lookup_table_;
     }
     
-    inline void getOutput(cv::Mat& output, const double *landmark, const cv::Mat& img, const double* transformation_matrix) const
+    inline void getOutput(cv::Mat& output, const float* landmark, const cv::Mat& img, const float* transformation_matrix) const
     {
         for(int n=0; n<N_; n++)
             output += lookup_table_[leaves_number_*n + forest_[n].getBinaryOutputIndex(landmark, img, transformation_matrix)];
     }
     
-    inline void getLocalBinaryFeature(int* lbf, const double *landmark, const cv::Mat& img, const double* transformation_matrix) const
+    inline void getLocalBinaryFeature(int* lbf, const float* landmark, const cv::Mat& img, const float* transformation_matrix) const
     {
         for(int n=0; n<N_; n++, lbf++)
             *lbf = leaves_number_*n + forest_[n].getBinaryOutputIndex(landmark, img, transformation_matrix);
     }
     
-    inline void getLocalBinaryFeatureVector(SparseVector::iterator lbf, const double *landmark, const cv::Mat& img, const double* transformation_matrix) const
-    {
-        for(int n=0; n<N_; n++) {
-            Node node;
-            node.index = leaves_number_*N_*l_ + leaves_number_*n + forest_[n].getBinaryOutputIndex(landmark, img, transformation_matrix) + 1;
-            node.value = 1.0;
-            *lbf = node;
-            lbf++;
-        }
-    }
-    
     friend std::ostream& operator<<(std::ostream& os, const ForestRegressor& forest_regressor);
     
-private:
+protected:
     int N_, D_, l_, leaves_number_;
     std::vector<TreeRegressor> forest_;
     std::vector<cv::Mat> lookup_table_;
@@ -212,17 +210,17 @@ public:
     AlignmentMethod(const std::string& filename);
     virtual ~AlignmentMethod();
     
-    void setMeanShape(double* mean_shape);
+    void setMeanShape(float* mean_shape);
     void setForestRegressors(ForestRegressor** forest_regressors);
     void saveModel(const std::string& filename) const;
     
     cv::Mat align(const cv::Rect& bounding_box, const cv::Mat& img) const;
-    void computeTransformation(const double* shape, double* transformation_matrix) const;
-    void normalizeShapeAccordingToFaceBoundingBox(double* shape, const cv::Rect& bounding_box) const;
-    void adaptNormalizedShapeToFaceBoundingBox(double* shape, const cv::Rect& bounding_box) const;
+    void computeTransformation(const float* shape, float* transformation_matrix) const;
+    void normalizeShapeAccordingToFaceBoundingBox(float* shape, const cv::Rect& bounding_box) const;
+    void adaptNormalizedShapeToFaceBoundingBox(float* shape, const cv::Rect& bounding_box) const;
     cv::Mat getMeanShape() const;
 
-    virtual void updateRule(int t, cv::Mat& shape, const cv::Mat& img, const double* transformation_matrix) const = 0;
+    virtual void updateRule(int t, cv::Mat& shape, const cv::Mat& img, const float* transformation_matrix) const = 0;
     
 protected:
     AlignmentMethod();
@@ -233,7 +231,7 @@ protected:
 protected:
     unsigned int T_, N_, D_, L_, leaves_number_;
     bool is_regressor_loaded_;
-    double *mean_shape_;
+    float *mean_shape_;
     ForestRegressor **forest_regressors_;
 };
 
@@ -245,7 +243,7 @@ public:
     LocalRegressorAlignment(const std::string& filename);
     
 protected:
-    void updateRule(int t, cv::Mat& shape, const cv::Mat& img, const double* transformation_matrix) const;
+    void updateRule(int t, cv::Mat& shape, const cv::Mat& img, const float* transformation_matrix) const;
 };
 
 
@@ -256,7 +254,7 @@ public:
     LocalBinaryFeatureAlignment(const std::string& filename);
     
 protected:
-    void updateRule(int t, cv::Mat& shape, const cv::Mat& img, const double* transformation_matrix) const;
+    void updateRule(int t, cv::Mat& shape, const cv::Mat& img, const float* transformation_matrix) const;
 };
 
 #endif

@@ -27,7 +27,7 @@ class FaceDetectorAndTracker:
     def __init__(self):
         self.detector = FaceDetector()
         self.alignment_with_face_detector = LBFLandmarkDetector(detector="opencv", landmarks=68)
-        self.alignment_for_tracking = LBFLandmarkDetector(detector="estimated", landmarks=68)
+        self.alignment_for_tracking = LBFLandmarkDetector(detector="perfect", landmarks=68)
     
     
     def detect(self, image):

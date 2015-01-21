@@ -20,9 +20,11 @@ import time
 import argparse
 import numpy as np
 
-execfile("fix_imports.py")
+execfile(os.path.join(os.path.dirname(__file__), "fix_imports.py"))
 import config
-from descriptors import descriptor_types
+from datasets import lfw
+from descriptors import descriptor_types, computeDescriptors
+from utils.file_manager import makedirsIfNeeded
 
 
 
@@ -41,22 +43,30 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     descriptor_type = args.descriptor_type
-    output_file = args.output_file
+    output_file = args.output_file.strip()
     normalize = args.normalize
 
-
+    # Load data
+    data = np.load(args.dataset)
+    if args.cropped:
+        data = lfw.preprocessData(data)
+    
     # Compute descriptors
-    learned_models_files = {
+    learned_models_files = {}
+    complete_learned_models_files = {
         "pca": args.pca_file,
         "lda": args.lda_file,
         "jb": args.jb_file
     }
-    for model, filename in learned_models_files.iteritems():
-        if filename is None:
-            del learned_models_files[model]
+    for name, filename in complete_learned_models_files.iteritems():
+        if filename is not None:
+            learned_models_files[name] = filename.strip()
+        elif name in descriptor_type:
+            raise Exception("Need to pass the model for %s" % name.upper())
     descs = computeDescriptors(data, descriptor_type, learned_models_files, normalize)
 
 
     # Save results
+    makedirsIfNeeded(output_file)
     np.save(output_file, descs)
     print "Results saved in %s" % output_file

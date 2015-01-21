@@ -19,6 +19,7 @@ from libcpp.vector cimport vector
 from libcpp.string cimport string
 from cython.operator cimport dereference as deref
 
+import os
 import numpy as np
 cimport numpy as np
 
@@ -42,7 +43,7 @@ cdef extern from "Alignment.h":
 
     cdef cppclass _FaceNormalization "FaceNormalization":
         void setReferenceShape(const _Mat&)
-        void normalize(_Mat&, _Mat&) const
+        float normalize(_Mat&, _Mat&) const
 
 
 cdef class LandmarkDetector:
@@ -58,24 +59,33 @@ cdef class LandmarkDetector:
         return createPyMat(self.thisptr.getReferenceShape())
 
 
-cdef class CSIROLandmarkDetector(LandmarkDetector):
-
-    def __cinit__(self):
-        initMatConversion()
-        self.thisptr = new _CSIROLandmarkDetector(config.models_path + "/csiro_alignment/face.mytracker", config.models_path + "/csiro_alignment/face.mytrackerparams")
-
-
-    def __dealloc__(self):
-        del self.thisptr
     
+if "USE_CSIRO_ALIGNMENT" in os.environ and os.environ["USE_CSIRO_ALIGNMENT"] == 1:
+    DEF USE_CSIRO_ALIGNMENT = 1
+else:
+    DEF USE_CSIRO_ALIGNMENT = 0
 
-    def detectLandmarks(self, np.ndarray img):
-        cdef:
-            _Mat _img, _landmarks
-            _Rect _empty
-        createCMat(img, _img)
-        self.thisptr.detectLandmarks(_img, _empty, _landmarks)
-        return createPyMat(_landmarks)
+    
+IF USE_CSIRO_ALIGNMENT:
+
+    cdef class CSIROLandmarkDetector(LandmarkDetector):
+
+        def __cinit__(self):
+            initMatConversion()
+            self.thisptr = new _CSIROLandmarkDetector(config.models_path + "/csiro_alignment/face.mytracker", config.models_path + "/csiro_alignment/face.mytrackerparams")
+
+
+        def __dealloc__(self):
+            del self.thisptr
+
+
+        def detectLandmarks(self, np.ndarray img):
+            cdef:
+                _Mat _img, _landmarks
+                _Rect _empty
+            createCMat(img, _img)
+            self.thisptr.detectLandmarks(_img, _empty, _landmarks)
+            return createPyMat(_landmarks)
  
 
 
@@ -85,25 +95,25 @@ cdef class LBFLandmarkDetector(LandmarkDetector):
 
     def __cinit__(self, detector="opencv", landmarks=51):
         initMatConversion()
-        
-        if landmarks != 51 and landmarks != 68:
+
+        if landmarks not in [51, 68]:
             raise Exception("Wrong landmarks number")
+        else:
+            landmarks_str = "%i_landmarks" % landmarks
 
         if detector == "opencv":
-            if landmarks == 51:
-                model_file = "alignment/lbf_regression_model_51_landmarks_opencv_detector.txt"
-            else:
-                model_file = "alignment/lbf_regression_model_68_landmarks_opencv_detector.txt"
+            detector_str = "opencv_detector"
         elif detector == "estimated":
-            if landmarks == 51:
-                model_file = "alignment/lbf_regression_model_51_landmarks_estimated_bounding_box.txt"
-            else:
-                model_file = "alignment/lbf_regression_model_68_landmarks_estimated_bounding_box.txt"
+            detector_str = "estimated_bounding_box"
+        elif detector == "perfect":
+            detector_str = "perfect_detector"
         else:
             raise Exception("Wrong detector argument")
 
+        model_file = os.path.join(config.models_path, "alignment", "lbf_regression_model_%s_%s.bin" % (landmarks_str, detector_str))
+
         self.thisptr = new _LBFLandmarkDetector()
-        (<_LBFLandmarkDetector*> self.thisptr).loadModel(config.models_path + "/" + model_file)
+        (<_LBFLandmarkDetector*> self.thisptr).loadModel(model_file)
 
 
     def __dealloc__(self):
@@ -141,10 +151,17 @@ cdef class FaceNormalization:
         self.thisptr.setReferenceShape(_reference_landmarks)
 
 
-    def normalize(self, np.ndarray img, landmarks):
+    def normalize(self, np.ndarray img, landmarks, return_relative_error=False):
         cdef _Mat _img, _landmarks
         createCMat(img, _img)
         createCMat(landmarks, _landmarks)
-        self.thisptr.normalize(_img, _landmarks)
-        return createPyMat(_img)
+        relative_error = self.thisptr.normalize(_img, _landmarks)
+
+        if return_relative_error:
+            return createPyMat(_img), relative_error
+        else:
+            return createPyMat(_img)
+
+
+
 

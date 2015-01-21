@@ -42,18 +42,18 @@ if __name__ == "__main__":
 
     # Train models
     print "\n\n------------- Training models -------------\n\n"
-    subprocess.call(["python2", compute_descriptor_script, "lfw" ,"training", "ulbp", dataset_file])
-    subprocess.call(["python2", learn_model_script, "lfw", os.path.join(training_descriptors_path, "ulbp_not_normalized_%s" % dataset), "pca", "200"])
-    subprocess.call(["python2", compute_descriptor_script, "lfw" ,"training", "ulbp_pca", dataset_file])
-    subprocess.call(["python2", learn_model_script, "lfw", os.path.join(training_descriptors_path, "ulbp_pca_not_normalized_%s" % dataset), "lda", "50"])
-    subprocess.call(["python2", learn_model_script, "lfw", os.path.join(training_descriptors_path, "ulbp_pca_not_normalized_%s" % dataset), "jb", "50"])
+    subprocess.check_call(["python2", compute_descriptor_script, "lfw" ,"training", "ulbp", dataset_file])
+    subprocess.check_call(["python2", learn_model_script, "lfw", os.path.join(training_descriptors_path, "ulbp_not_normalized_%s" % dataset), "pca", "200"])
+    subprocess.check_call(["python2", compute_descriptor_script, "lfw" ,"training", "ulbp_pca", dataset_file])
+    subprocess.check_call(["python2", learn_model_script, "lfw", os.path.join(training_descriptors_path, "ulbp_pca_not_normalized_%s" % dataset), "lda", "50"])
+    subprocess.check_call(["python2", learn_model_script, "lfw", os.path.join(training_descriptors_path, "ulbp_pca_not_normalized_%s" % dataset), "jb", "50"])
 
 
     # Compute test descriptors
     print "\n\n------------- Computing test descriptors -------------\n\n"
-    subprocess.call(["python2", compute_descriptor_script, "lfw" ,"test", "-n", "lbp", dataset_file])
-    subprocess.call(["python2", compute_descriptor_script, "lfw" ,"test", "-n", "ulbp", dataset_file])
-    subprocess.call(["python2", compute_descriptor_script, "lfw" ,"test", "-n", "ulbp_pca", dataset_file])
-    subprocess.call(["python2", compute_descriptor_script, "lfw" ,"test", "-n", "ulbp_wpca", dataset_file])
-    subprocess.call(["python2", compute_descriptor_script, "lfw" ,"test", "-n", "ulbp_pca_lda", dataset_file])
-    subprocess.call(["python2", compute_descriptor_script, "lfw" ,"test", "ulbp_pca_jb", dataset_file])
+    subprocess.check_call(["python2", compute_descriptor_script, "lfw" ,"test", "-n", "lbp", dataset_file])
+    subprocess.check_call(["python2", compute_descriptor_script, "lfw" ,"test", "-n", "ulbp", dataset_file])
+    subprocess.check_call(["python2", compute_descriptor_script, "lfw" ,"test", "-n", "ulbp_pca", dataset_file])
+    subprocess.check_call(["python2", compute_descriptor_script, "lfw" ,"test", "-n", "ulbp_wpca", dataset_file])
+    subprocess.check_call(["python2", compute_descriptor_script, "lfw" ,"test", "-n", "ulbp_pca_lda", dataset_file])
+    subprocess.check_call(["python2", compute_descriptor_script, "lfw" ,"test", "ulbp_pca_jb", dataset_file])
