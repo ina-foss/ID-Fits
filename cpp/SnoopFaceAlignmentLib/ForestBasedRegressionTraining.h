@@ -29,6 +29,7 @@
 
 
 typedef std::pair<float[2], float[2]> Feature_t;
+typedef std::vector<Node> SparseVector;
 const float PI_2_ = 2*3.141592653589793238463;
 enum node_separation_criteria_t {LS, VAR, MEAN_NORM, NORMALIZED_LS, NORMALIZED_VAR, TEST};
 
@@ -90,7 +91,7 @@ public:
             TreeRegressor tree(*forest[n], D_);
             training_errors[n] = 0;
             for(unsigned int i=0; i<delta_s.size(); i++) {
-                unsigned int pos = tree.getBinaryOutputIndex(shape[i].ptr<double>(l), image[i], transformations_[i]);
+                unsigned int pos = tree.getBinaryOutputIndex(shape[i].ptr<float>(l), image[i], transformations_[i]);
                 training_errors[n] += cv::norm(delta_s[i].row(l) - lookup_table[n*leaves_number_ + pos]);
             }
         }
@@ -125,7 +126,7 @@ public:
             
             Feature_t feature = random_features[f];
             for(int i=0; i<n; i++)
-                random_features_outputs[f][i] = Feature::performTest(feature.first, feature.second, (*shape_)[i].ptr<double>(l_), (*image_)[i], transformations_[i]);
+                random_features_outputs[f][i] = Feature::performTest(feature.first, feature.second, (*shape_)[i].ptr<float>(l_), (*image_)[i], transformations_[i]);
         }
         
         //return trainTreeIterative(all_data_partition, random_features_output);
@@ -437,7 +438,7 @@ protected:
         std::copy(mean_shape_mat_data, mean_shape_mat_data+2*L, mean_shape);
     }
     
-    double computeMeanError(const MatVector& delta_s, const std::vector<float>& inter_occular_distances) const
+    float computeMeanError(const MatVector& delta_s, const std::vector<float>& inter_occular_distances) const
     {
         int training_set_size = delta_s.size();
         int L = delta_s[0].rows;
@@ -552,7 +553,7 @@ public:
 class ForestRegressorLibLinearFormat: public ForestRegressor
 {
 public:
-    inline void getLocalBinaryFeatureVector(SparseVector::iterator lbf, const double *landmark, const cv::Mat& img, const double* transformation_matrix) const
+    inline void getLocalBinaryFeatureVector(SparseVector::iterator lbf, const float *landmark, const cv::Mat& img, const float* transformation_matrix) const
     {
         for(int n=0; n<N_; n++) {
             Node node;
@@ -587,21 +588,21 @@ public:
         
         alignment_method_ = new LocalBinaryFeatureAlignment(T_, N_, D_, L);
         
-        double mean_shape[2*L];
+        float mean_shape[2*L];
         computeMeanShape(mean_shape, s_star, bounding_boxes);
         alignment_method_->setMeanShape(mean_shape);
 
         ForestRegressor** forest_regressors = new ForestRegressor*[T_];
         for(unsigned int t=0; t<T_; t++)
-            forest_regressors[t] = new ForestRegressor[L];
+            forest_regressors[t] = new ForestRegressorLibLinearFormat[L];
         alignment_method_->setForestRegressors(forest_regressors);
         
         std::vector<cv::Mat> delta_s;
         delta_s.reserve(training_set_size);
         for(int i=0; i<training_set_size; i++)
-            delta_s.push_back(cv::Mat(L, 2, CV_64FC1));
+            delta_s.push_back(cv::Mat(L, 2, CV_32FC1));
         
-        std::vector<double> inter_occular_distances;
+        std::vector<float> inter_occular_distances;
         computeInteroccularDistances(s_star, eye_index1, eye_index2, inter_occular_distances);
         
         std::cout << std::fixed << std::setprecision(2);
@@ -636,12 +637,12 @@ public:
             for(int i=0; i<training_set_size; i++) {
                 lbfs.push_back(vector);
                 for(int l=0; l<L; l++) {
-                    const double *landmark = s[i].ptr<double>(l);
-                    forest_regressors[t][l].getLocalBinaryFeatureVector(lbfs[i].begin()+l*N_, landmark, imgs[i], transformations_[i]);
+                    const float *landmark = s[i].ptr<float>(l);
+                    ((ForestRegressorLibLinearFormat*) &forest_regressors[t][l])->getLocalBinaryFeatureVector(lbfs[i].begin()+l*N_, landmark, imgs[i], transformations_[i]);
                 }
             }
             
-            std::pair<std::vector<double>, std::vector<double> > regressor;
+            std::pair<std::vector<float>, std::vector<float> > regressor;
             learnGlobalRegressor(lbfs.size(), &lbfs[0], &normalized_delta_s[0], regressor);
             
             std::cout << "Updating forest regressors with global regressor values..." << std::endl;
@@ -668,17 +669,17 @@ public:
     }
 
 private:
-    void updateForestRegressorsWithGlobalRegressor(int L, ForestRegressor *forest_regressors, const std::pair<std::vector<double>, std::vector<double> >& regressor)
+    void updateForestRegressorsWithGlobalRegressor(int L, ForestRegressor *forest_regressors, const std::pair<std::vector<float>, std::vector<float> >& regressor)
     {
         for(int l=0; l<L; l++) {
             std::vector<cv::Mat>& lookup_table = forest_regressors[l].getLookupTable();
             
             for(unsigned int n=0; n<N_; n++) {
                 for(int i=0; i<(1<<D_); i++) {
-                    cv::Mat global_regressor_value(L, 2, CV_64FC1);
+                    cv::Mat global_regressor_value(L, 2, CV_32FC1);
                     
                     for(int l2=0; l2<L; l2++) {
-                        double* landmark = global_regressor_value.ptr<double>(l2);
+                        float* landmark = global_regressor_value.ptr<float>(l2);
                         landmark[0] = regressor.first[L*N_*(1<<D_)*l2 + l*N_*(1<<D_) + n*(1<<D_) + i];
                         landmark[1] = regressor.second[L*N_*(1<<D_)*l2 + l*N_*(1<<D_) + n*(1<<D_) + i];
                     }
@@ -689,7 +690,7 @@ private:
         }
     }
     
-    void learnGlobalRegressor(int nr_samples, const SparseVector* x, const cv::Mat* y, std::pair<std::vector<double>, std::vector<double> >& output)
+    void learnGlobalRegressor(int nr_samples, const SparseVector* x, const cv::Mat* y, std::pair<std::vector<float>, std::vector<float> >& output)
     {
         int L = y[0].rows;
         int nr_features = L*N_*(1<<D_);
@@ -701,22 +702,11 @@ private:
         
         LibLinearRegression liblinear_regression(nr_samples, nr_features);
         
-        /*
-        std::vector<double> c_values(4);
-        c_values[0] = 1.f;
-        for(unsigned int i=1; i<c_values.size(); i++)
-            c_values[i] = c_values[i-1] / 2;
-        
-        double c = findCValueByCrossValidation(liblinear_regression, x, y, c_values);
-        liblinear_regression.setProblemParameters(c);
-        std::cout << "C value chosen for global regression: " << c << std::endl;
-        */
-        
         liblinear_regression.setProblemParameters(1);
         trainModelForAllLandmarks(liblinear_regression, x, y, output);
     }
     
-    void trainModelForAllLandmarks(LibLinearRegression& liblinear_regression, const SparseVector* x, const cv::Mat* y, std::pair<std::vector<double>, std::vector<double> >& output)
+    void trainModelForAllLandmarks(LibLinearRegression& liblinear_regression, const SparseVector* x, const cv::Mat* y, std::pair<std::vector<float>, std::vector<float> >& output)
     {
         int nr_samples = liblinear_regression.getSamplesNumber();
         int nr_features = liblinear_regression.getFeaturesNumber();
@@ -737,9 +727,9 @@ private:
             
             double y0[nr_samples], y1[nr_samples];
             for(int i=0; i<nr_samples; i++) {
-                const double *residual = y[i].ptr<double>(l);
-                y0[i] = residual[0];
-                y1[i] = residual[1];
+                const float *residual = y[i].ptr<float>(l);
+                y0[i] = (double) residual[0];
+                y1[i] = (double) residual[1];
             }
 
             liblinear_regression.trainModelWithTrainingData(x_array, y0, &output.first[nr_features*l]);
@@ -751,74 +741,6 @@ private:
         }
     }
     
-    double findCValueByCrossValidation(LibLinearRegression& liblinear_regression, const SparseVector* x, const cv::Mat* y, std::vector<double> c_values)
-    {
-        int nr_samples = liblinear_regression.getSamplesNumber();
-        int L = y[0].rows;
-        
-        double min_error = 1e30;
-        double best_c_value = 0.01;
-        
-        double* target = new double[nr_samples];
-        
-        for(unsigned int c_value_index=0; c_value_index < c_values.size(); c_value_index++) {
-            std::cout << "Cross-validating C=" << c_values[c_value_index] << " ..." << std::endl; 
-            
-            liblinear_regression.setProblemParameters(c_values[c_value_index]);
-            
-            double error = 0.f;
-            
-            for(int l=0; l<L; l++) {
-                 std::cout << "Cross-validating C=" << c_values[c_value_index] << " for landmark #" << l << "..." << std::endl; 
-                
-                Node** x_array = new Node*[nr_samples];
-                for(int i=0; i<nr_samples; i++) {
-                    x_array[i] = new Node[L*N_+1];
-                    std::copy(x[i].begin(), x[i].end(), x_array[i]);
-                    
-                    Node final;
-                    final.index = -1;
-                    final.value = 0.0;
-                    x_array[i][L*N_] = final;
-                }
-                liblinear_regression.setProblemInput(x_array);
-                
-                double y0[nr_samples], y1[nr_samples];
-                for(int i=0; i<nr_samples; i++) {
-                    const double *residual = y[i].ptr<double>(l);
-                    y0[i] = residual[0];
-                    y1[i] = residual[1];
-                }
-                
-                liblinear_regression.setProblemOutput(y0);
-                liblinear_regression.performCrossValidation(5, target);
-                for(int i=0; i<nr_samples; i++) {
-                    const double *residual = y[i].ptr<double>(l);
-                    error += (target[i]-residual[0])*(target[i]-residual[0]);
-                }
-                
-                liblinear_regression.setProblemOutput(y1);
-                liblinear_regression.performCrossValidation(5, target);
-                for(int i=0; i<nr_samples; i++) {
-                    const double *residual = y[i].ptr<double>(l);
-                    error += (target[i]-residual[1])*(target[i]-residual[1]);
-                }
-                
-                for(int i=0; i<nr_samples; i++)
-                    delete[] x_array[i];
-                delete[] x_array;
-            }
-            
-            if(min_error > error) {
-                min_error = error;
-                best_c_value = c_values[c_value_index];
-            }
-        }
-        
-        delete[] target;
-        
-        return best_c_value;
-    }
 };
 
 #endif

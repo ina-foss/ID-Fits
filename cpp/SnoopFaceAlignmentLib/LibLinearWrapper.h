@@ -79,8 +79,9 @@ public:
     {
         return prob_.n;
     }
-    
-    void trainModelWithTrainingData(Node** x, double* y, double* model) const
+
+    template<typename T>
+    void trainModelWithTrainingData(Node** x, double* y, T* model) const
     {
         liblinear::problem prob = prob_;
         prob.x = x;

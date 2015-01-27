@@ -27,14 +27,14 @@ from opencv_types cimport *
 
 
 
-ctypedef pair[double[2], double[2]] _Feature
+ctypedef pair[float[2], float[2]] _Feature
 
 
 cdef extern from "ForestBasedRegression.h":
 
     cdef cppclass _BinaryTree "BinaryTree":
-        double index1_[2]
-        double index2_[2]
+        float index1_[2]
+        float index2_[2]
         int pos_
         _BinaryTree* left_
         _BinaryTree* right_
@@ -42,7 +42,7 @@ cdef extern from "ForestBasedRegression.h":
 
     cdef cppclass _TreeRegressor "TreeRegressor":
         _TreeRegressor(_BinaryTree&, int)
-        void getOutput(double*, const _Mat&, const _Mat&)
+        void getOutput(float*, const _Mat&, const _Mat&)
 
 
     cdef cppclass _ForestRegressor "ForestRegressor":
@@ -72,7 +72,7 @@ cdef extern from "ForestBasedRegressionTraining.h":
         _ForestRegressorTraining(int, int)
         void setSampledRandomFeaturesNumber(int)
         void setNodeSeparationCriteria(_node_separation_criteria)
-        void generateRandomFeatures(double, _Feature*)
+        void generateRandomFeatures(float, _Feature*)
 
 
     cdef cppclass _AlignmentMethodTraining "AlignmentMethodTraining":
