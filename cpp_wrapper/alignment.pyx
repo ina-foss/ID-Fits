@@ -153,7 +153,7 @@ cdef class FaceNormalization:
 
     def normalize(self, np.ndarray img, landmarks, return_relative_error=False):
         cdef _Mat _img, _landmarks
-        createCMat(img, _img)
+        createCMat(np.copy(img), _img)
         createCMat(landmarks, _landmarks)
         relative_error = self.thisptr.normalize(_img, _landmarks)
 

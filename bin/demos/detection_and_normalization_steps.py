@@ -72,10 +72,10 @@ if __name__ == "__main__":
     face_normalization.setReferenceShape(alignment.getReferenceShape())
 
     for i, shape in enumerate(shapes):
-        normalized_image = face_normalization.normalize(np.copy(copy), shape)
+        normalized_image = face_normalization.normalize(copy, shape)
         cv2.imshow("Normalized face %i / %i"%(i+1, len(shapes)), normalized_image)
         cv2.waitKey(0)
 
-        normalized_image = face_normalization.normalize(np.copy(clean_copy), shape)
+        normalized_image = face_normalization.normalize(clean_copy, shape)
         cv2.imshow("Normalized face %i / %i"%(i+1, len(shapes)), normalized_image)
         cv2.waitKey(0)
