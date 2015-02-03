@@ -49,7 +49,7 @@ if __name__ == "__main__":
         raise Exception("No faces detected")
 
     for face in faces:
-        cv2.rectangle(copy, face[:2], face[2:], (0,0,255), int(0.01*image.shape[0]))
+        cv2.rectangle(copy, face[:2], face[2:], (0,0,255), 3)
 
     cv2.imshow("Face detector", copy)
     cv2.waitKey(0)
@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
     for shape in shapes:
         for landmark in shape:
-            cv2.circle(copy, tuple(landmark.astype(np.int)), int(0.007*image.shape[0]), (0,255,0), -1)
+            cv2.circle(copy, tuple(landmark.astype(np.int)), 2, (0,255,0), -1)
 
     cv2.imshow("Landmarks detector", copy)
     cv2.waitKey(0)
@@ -72,10 +72,10 @@ if __name__ == "__main__":
     face_normalization.setReferenceShape(alignment.getReferenceShape())
 
     for i, shape in enumerate(shapes):
-        normalized_image = face_normalization.normalize(copy, shape)
+        normalized_image = face_normalization.normalize(np.copy(copy), shape)
         cv2.imshow("Normalized face %i / %i"%(i+1, len(shapes)), normalized_image)
         cv2.waitKey(0)
 
-        normalized_image = face_normalization.normalize(clean_copy, shape)
+        normalized_image = face_normalization.normalize(np.copy(clean_copy), shape)
         cv2.imshow("Normalized face %i / %i"%(i+1, len(shapes)), normalized_image)
         cv2.waitKey(0)
