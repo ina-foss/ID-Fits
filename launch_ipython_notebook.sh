@@ -15,4 +15,12 @@
 # License along with this library.
 
 
-ipython2 notebook --profile-dir=$(readlink -fn notebooks)/.ipython
+if hash ipython2 2>/dev/null; then
+	ipython2 notebook --profile-dir=$(readlink -fn notebooks)/.ipython
+else
+	if hash ipython 2>/dev/null; then
+		ipython notebook --notebook-dir=$(readlink -fn notebooks)
+	else
+		echo "Cannot find ipython or ipython2"
+	fi
+fi

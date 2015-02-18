@@ -22,8 +22,11 @@
 #include <iomanip>
 #include <cmath>
 #include <stack>
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_real_distribution.hpp>
+//#include <boost/random/mersenne_twister.hpp>
+//#include <boost/random/uniform_real_distribution.hpp>
+#if defined(__GXX_EXPERIMENTAL_CXX0X) || __cplusplus >= 201103L
+    #include <random>
+#endif
 #include <SnoopFaceAlignmentLib/ForestBasedRegression.h>
 #include <SnoopFaceAlignmentLib/LibLinearWrapper.h>
 
@@ -297,9 +300,12 @@ public:
         return std::max(var_left, var_right);
     }
     
+    
+#if defined(__GXX_EXPERIMENTAL_CXX0X) || __cplusplus >= 201103L
     void generateRandomFeatures(float radius, Feature_t* random_features)
     {
-        boost::random::uniform_real_distribution<float> coordinate(-radius, radius);
+        //boost::random::uniform_real_distribution<float> coordinate(-radius, radius);
+        std::uniform_real_distribution<float> coordinate(-radius, radius);
         
         float x, y;
         Feature_t feature;
@@ -323,6 +329,40 @@ public:
         }
     }
     
+#else
+    float randomFloat(float a, float b) {
+        float random = ((float) rand()) / (float) RAND_MAX;
+        float diff = b - a;
+        float r = random * diff;
+        return a + r;
+    }
+    
+    void generateRandomFeatures(float radius, Feature_t* random_features)
+    {
+        float x, y;
+        Feature_t feature;
+       
+        for(unsigned int i=0; i<sampled_random_features_number_; i++) {
+            do {
+                x = randomFloat(-radius, radius);
+                y = randomFloat(-radius, radius);
+            } while(x*x+y*y > radius*radius);
+            feature.first[0] = x;
+            feature.first[1] = y;
+           
+            do {
+                x = randomFloat(-radius, radius);
+                y = randomFloat(-radius, radius);
+            } while(x*x+y*y > radius*radius);
+            feature.second[0] = x;
+            feature.second[1] = y;
+            
+            random_features[i] = feature;
+        }
+    }
+#endif
+    
+    
 private:
     const unsigned int N_, D_;
     node_separation_criteria_t criteria_;
@@ -331,7 +371,11 @@ private:
     float radius_;
     std::vector<float*> transformations_;
     const std::vector<cv::Mat> *shape_, *shape_error_, *image_;
-    boost::random::mt19937 rng_;
+    //boost::random::mt19937 rng_;
+    //unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+#if defined(__GXX_EXPERIMENTAL_CXX0X) || __cplusplus >= 201103L
+    std::mt19937 rng_;
+#endif
 };
 
 

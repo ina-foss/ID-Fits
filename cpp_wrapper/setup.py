@@ -20,22 +20,54 @@ import os
 from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Build import cythonize
+import argparse
+
 
 
 macros = []
 
 desc_dir = "../cpp/SnoopFaceDescLib/"
 alignment_dir = "../cpp/SnoopFaceAlignmentLib/"
+
+
+parser = argparse.ArgumentParser(description="Setup script")
+parser.add_argument("--debug", action='store_true')
+parser.add_argument("--build_alignment_training", action='store_true')
+parser.add_argument("--use_csiro_alignment", action='store_true')
+parser.add_argument("--eigen_includes", nargs="?", help="Eigen includes directory")
+parser.add_argument("--opencv_includes", nargs="?", help="OpenCV includes directory")
+parser.add_argument("--opencv_libraries", nargs="?", help="OpenCV libraries directory")
+parser.add_argument("--liblinear_directory", nargs="?", help="LibLinear directory")
+args, unknown_args = parser.parse_known_args()
+unknown_args.insert(0, 'setup.py')
+sys.argv = unknown_args
+
 include_dirs = [
-    "/usr/include/eigen3",
-    "/home/tlorieul/Dev/install/include/",
     "../cpp/",
     "../cpp/SnoopFaceDescLib",
     "../cpp/SnoopFaceAlignmentLib",
     "3rdparties/"]
-library_dirs = ["/home/tlorieul/Dev/install/lib"]
+
+
+if args.eigen_includes:
+    include_dirs.append(args.eigen_includes) 
+
+if args.opencv_includes:
+    include_dirs.extend(args.opencv_includes.split()) 
+    
+if args.liblinear_directory:
+    include_dirs.extend(args.liblinear_directory.split()) 
+
+library_dirs = []    
+
+if args.opencv_libraries:
+    library_dirs.extend(args.opencv_libraries.split()) 
+
+
 opencv_libs = ["opencv_core", "opencv_highgui", "opencv_imgproc", "opencv_objdetect"]
 cxx_flags = ["-Wno-unused-function", "-msse2", "-DNDEBUG"]
+
+
 
 
 extensions = [
@@ -67,8 +99,9 @@ extensions = [
 ]
 
 
-if "use_csiro_alignment" in sys.argv:
-    sys.argv.remove("use_csiro_alignment")
+#if "use_csiro_alignment" in unknown_args:
+if args.use_csiro_alignment:
+    #sys.argv.remove("use_csiro_alignment")
     os.environ["USE_CSIRO_ALIGNMENT"] = "1"
     extensions[2] = Extension("alignment", ["alignment.pyx", alignment_dir + "ForestBasedRegression.cc", alignment_dir + "Alignment.cc"],
                               language = "c++",
@@ -79,27 +112,20 @@ if "use_csiro_alignment" in sys.argv:
                               library_dirs = library_dirs)
 
 
-if "build_alignment_training" in sys.argv:
-    sys.argv.remove("build_alignment_training")
+#if "build_alignment_training" in unknown_args:
+if args.build_alignment_training:
+    #sys.argv.remove("build_alignment_training")
     extensions.append(Extension("tree_based_regression", ["tree_based_regression.pyx", alignment_dir + "ForestBasedRegression.cc"],
                                 language = "c++",
-                                extra_compile_args = cxx_flags + ["-fopenmp", "-ffast-math", "-O3"],
+                                extra_compile_args = cxx_flags + ["-fopenmp", "-ffast-math", "-O3", "-std=c++0x"],
                                 extra_link_args = ["-fopenmp", "-ffast-math"],
                                 include_dirs = include_dirs,
-                                libraries = opencv_libs + ["boost_random", "linear"],
+                                libraries = opencv_libs,
                                 library_dirs = library_dirs)
                   )
     
 
-
-if "debug" in sys.argv:
-    sys.argv.remove("debug")
-    setup(
-        name = "descriptors",
-        ext_modules = cythonize(extensions, gdb_debug=True)
-    )
-else:
-    setup(
-        name = "descriptors",
-        ext_modules = cythonize(extensions)
+setup(
+    name = "descriptors",
+    ext_modules = cythonize(extensions, gdb_debug=str(args.debug))
     )

@@ -30,6 +30,18 @@ class FaceDetectorAndTracker:
         self.alignment_for_tracking = LBFLandmarkDetector(detector="perfect", landmarks=68)
     
     
+    def detectFaces(self, image):
+        faces = self.detector.detectFaces(image)
+        return faces
+    
+    def detectLandmarks(self, faces, image):
+        shapes = []
+        
+        for face in faces:
+            shapes.append(self.alignment_with_face_detector.detectLandmarks(image, face))
+        
+        return shapes
+
     def detect(self, image):
         faces = self.detector.detectFaces(image)
         shapes = []
